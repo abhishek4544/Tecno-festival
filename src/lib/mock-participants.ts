@@ -99,6 +99,8 @@ const seed: Array<{
 
 export const mockParticipants: ParticipantRow[] = seed.map((s, i) => ({
   id: `p-${i + 1}`,
+  scratchResultId: `s-${i + 1}`,
+  retailerAddress: null,
   name: s.name,
   mobile: `98${String(10000000 + i * 1337).slice(0, 8)}`,
   imei: (869000000000000 + i * 1337).toString().slice(0, 15),

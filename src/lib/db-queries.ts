@@ -1,10 +1,11 @@
 import "server-only"
 import { sql } from "@/lib/db"
+import type { Paginated } from "@/lib/pagination"
 import type {
   AssignedPrize,
   CampaignStatus,
   ImeiRecord,
-  ImeiStatus,
+  ImeiRegistryStatus,
   ImeiSource,
   ParticipantRow,
   ScratchOutcome,
@@ -37,67 +38,146 @@ export async function getActiveCampaign(): Promise<ActiveCampaign | null> {
   return rows[0] ?? null
 }
 
-type ImeiRow = {
+export type ImeiFilters = {
+  /** Digits to match anywhere in the IMEI; "" for no search. */
+  query: string
+  status: ImeiRegistryStatus | null
+  /** "none" = no prize assigned. */
+  prize: "none" | "SilverCoin" | "SilverKite" | null
+  page: number
+  pageSize: number
+}
+
+type ImeiJsonRow = {
   id: string
   imei: string
   device_model: string | null
   batch_code: string | null
-  status: ImeiStatus
+  status: ImeiRegistryStatus
   validation_attempts: number
   source: ImeiSource
   assigned_prize: AssignedPrize
   added_at: string
   participant_name: string | null
-  scratch_outcome: ScratchOutcomeDb | null
-  verification_status: VerificationStatus | null
   expected_retailer: string | null
 }
 
-export async function listImeis(campaignId: string): Promise<ImeiRecord[]> {
-  const rows = (await sql`
-    SELECT
-      i.id,
-      i.imei,
-      i.device_model,
-      i.batch_code,
-      i.status,
-      i.validation_attempts,
-      i.source,
-      i.assigned_prize,
-      i.added_at,
-      i.expected_retailer,
-      p.full_name AS participant_name,
-      s.outcome AS scratch_outcome,
-      s.verification_status
-    FROM imei_registry i
-    LEFT JOIN participants p
-      ON p.campaign_id = i.campaign_id AND p.imei = i.imei
-    LEFT JOIN scratch_results s ON s.participant_id = p.id
-    WHERE i.campaign_id = ${campaignId}
-    ORDER BY i.added_at ASC
-  `) as ImeiRow[]
+type PageResult<T> = {
+  campaign_id: string | null
+  total_all: number
+  total: number
+  offset: number
+  rows: T[]
+}
 
-  return rows.map((r) => ({
-    id: r.id,
-    imei: r.imei,
-    deviceModel: r.device_model ?? "",
-    batch: r.batch_code ?? "",
-    status: r.status === "Blocked"
-      ? "Blocked"
-      : r.scratch_outcome === "SilverKite" || r.scratch_outcome === "SilverCoin"
-        ? r.verification_status === "Confirmed"
-          ? "Claimed"
-          : r.verification_status === "Rejected"
-            ? "Rejected"
-            : "Winning Pending"
-        : r.scratch_outcome === "TryAgain" ? "Used" : r.status,
-    validationAttempts: r.validation_attempts,
-    participantName: r.participant_name,
-    addedAt: r.added_at,
-    source: r.source,
-    assignedPrize: r.assigned_prize,
-    expectedRetailer: r.expected_retailer,
-  }))
+/**
+ * One page of the active campaign's IMEI registry, in a single round trip.
+ * The registry status shown in the admin (Winning Pending, Claimed, ...) is
+ * derived from the scratch result, so filtering on it happens in SQL too.
+ */
+export async function listImeisPage(
+  filters: ImeiFilters,
+): Promise<Paginated<ImeiRecord>> {
+  const { status, prize, pageSize } = filters
+  const query = filters.query.replace(/\D/g, "")
+  const offset = (filters.page - 1) * pageSize
+
+  const [result] = (await sql`
+    WITH campaign AS (
+      SELECT id FROM campaigns
+      WHERE status = 'Active'
+      ORDER BY start_at DESC
+      LIMIT 1
+    ),
+    registry AS (
+      SELECT
+        i.id,
+        i.imei,
+        i.device_model,
+        i.batch_code,
+        CASE
+          WHEN i.status = 'Blocked' THEN 'Blocked'
+          WHEN s.outcome IN ('SilverKite', 'SilverCoin') THEN
+            CASE s.verification_status
+              WHEN 'Confirmed' THEN 'Claimed'
+              WHEN 'Rejected' THEN 'Rejected'
+              ELSE 'Winning Pending'
+            END
+          WHEN s.outcome = 'TryAgain' THEN 'Used'
+          ELSE i.status::text
+        END AS status,
+        i.validation_attempts,
+        i.source,
+        i.assigned_prize,
+        i.added_at,
+        i.expected_retailer,
+        p.full_name AS participant_name
+      FROM imei_registry i
+      JOIN campaign c ON c.id = i.campaign_id
+      LEFT JOIN participants p
+        ON p.campaign_id = i.campaign_id AND p.imei = i.imei
+      LEFT JOIN scratch_results s ON s.participant_id = p.id
+    ),
+    filtered AS (
+      SELECT * FROM registry
+      WHERE (${status}::text IS NULL OR status = ${status}::text)
+        AND (
+          ${prize}::text IS NULL
+          OR (${prize}::text = 'none' AND assigned_prize IS NULL)
+          OR assigned_prize::text = ${prize}::text
+        )
+        AND (${query}::text = '' OR imei LIKE '%' || ${query}::text || '%')
+    ),
+    paging AS (
+      -- Clamp past-the-end pages to the last page that has rows.
+      SELECT
+        count(*)::int AS total,
+        LEAST(
+          ${offset}::int,
+          GREATEST((count(*)::int - 1) / ${pageSize}::int, 0) * ${pageSize}::int
+        ) AS "offset"
+      FROM filtered
+    )
+    SELECT
+      (SELECT id FROM campaign) AS campaign_id,
+      (SELECT count(*)::int FROM registry) AS total_all,
+      paging.total,
+      paging."offset",
+      COALESCE(
+        (
+          SELECT json_agg(r ORDER BY r.added_at, r.imei)
+          FROM (
+            SELECT * FROM filtered
+            ORDER BY added_at, imei
+            LIMIT ${pageSize}::int
+            OFFSET (SELECT "offset" FROM paging)
+          ) r
+        ),
+        '[]'
+      ) AS rows
+    FROM paging
+  `) as PageResult<ImeiJsonRow>[]
+
+  return {
+    campaignId: result.campaign_id,
+    total: result.total,
+    totalAll: result.total_all,
+    page: result.offset / pageSize + 1,
+    pageSize,
+    rows: result.rows.map((r) => ({
+      id: r.id,
+      imei: r.imei,
+      deviceModel: r.device_model ?? "",
+      batch: r.batch_code ?? "",
+      status: r.status,
+      validationAttempts: r.validation_attempts,
+      participantName: r.participant_name,
+      addedAt: r.added_at,
+      source: r.source,
+      assignedPrize: r.assigned_prize,
+      expectedRetailer: r.expected_retailer,
+    })),
+  }
 }
 
 export type CampaignSettings = {
@@ -149,48 +229,130 @@ export async function getCampaignSettings(): Promise<CampaignSettings | null> {
   }
 }
 
-type ParticipantQueryRow = {
+export type ParticipantFilters = {
+  /** Matches name, mobile, IMEI, store name or district; "" for no search. */
+  query: string
+  /** "none" = no verification (non-winners). */
+  verification: VerificationStatus | "none" | null
+  scratch: ScratchOutcomeDb | null
+  page: number
+  pageSize: number
+}
+
+type ParticipantJsonRow = {
   id: string
   name: string
   mobile: string
   imei: string
   retailer_entered: string
+  retailer_address: string | null
   retailer_expected: string | null
-  scratch: ScratchOutcomeDb | null
+  scratch_result_id: string | null
+  scratch: ScratchOutcomeDb
   verification: VerificationStatus | null
   participated_at: string
 }
 
-export async function listParticipants(campaignId: string): Promise<ParticipantRow[]> {
-  const rows = (await sql`
+/** One page of the active campaign's participants, newest first, in a single round trip. */
+export async function listParticipantsPage(
+  filters: ParticipantFilters,
+): Promise<Paginated<ParticipantRow>> {
+  const { verification, scratch, pageSize } = filters
+  // Escape LIKE wildcards so a search for "50%" matches literally.
+  const query = filters.query.trim().replace(/[\\%_]/g, "\\$&")
+  const offset = (filters.page - 1) * pageSize
+
+  const [result] = (await sql`
+    WITH campaign AS (
+      SELECT id FROM campaigns
+      WHERE status = 'Active'
+      ORDER BY start_at DESC
+      LIMIT 1
+    ),
+    entries AS (
+      SELECT
+        p.id,
+        p.full_name AS name,
+        p.mobile,
+        p.imei,
+        p.retailer_name AS retailer_entered,
+        p.retailer_address,
+        i.expected_retailer AS retailer_expected,
+        s.id AS scratch_result_id,
+        COALESCE(s.outcome, 'Pending') AS scratch,
+        s.verification_status AS verification,
+        p.participated_at
+      FROM participants p
+      JOIN campaign c ON c.id = p.campaign_id
+      LEFT JOIN scratch_results s ON s.participant_id = p.id
+      LEFT JOIN imei_registry i
+        ON i.campaign_id = p.campaign_id AND i.imei = p.imei
+    ),
+    filtered AS (
+      SELECT * FROM entries
+      WHERE (
+          ${verification}::text IS NULL
+          OR (${verification}::text = 'none' AND verification IS NULL)
+          OR verification::text = ${verification}::text
+        )
+        AND (${scratch}::text IS NULL OR scratch::text = ${scratch}::text)
+        AND (
+          ${query}::text = ''
+          OR name ILIKE '%' || ${query}::text || '%'
+          OR mobile LIKE '%' || ${query}::text || '%'
+          OR imei LIKE '%' || ${query}::text || '%'
+          OR retailer_entered ILIKE '%' || ${query}::text || '%'
+          OR retailer_address ILIKE '%' || ${query}::text || '%'
+        )
+    ),
+    paging AS (
+      -- Clamp past-the-end pages to the last page that has rows.
+      SELECT
+        count(*)::int AS total,
+        LEAST(
+          ${offset}::int,
+          GREATEST((count(*)::int - 1) / ${pageSize}::int, 0) * ${pageSize}::int
+        ) AS "offset"
+      FROM filtered
+    )
     SELECT
-      p.id,
-      p.full_name AS name,
-      p.mobile,
-      p.imei,
-      p.retailer_name AS retailer_entered,
-      i.expected_retailer AS retailer_expected,
-      s.outcome AS scratch,
-      s.verification_status AS verification,
-      p.participated_at
-    FROM participants p
-    LEFT JOIN scratch_results s ON s.participant_id = p.id
-    LEFT JOIN imei_registry i
-      ON i.campaign_id = p.campaign_id AND i.imei = p.imei
-    WHERE p.campaign_id = ${campaignId}
-    ORDER BY p.participated_at DESC
-  `) as ParticipantQueryRow[]
+      (SELECT id FROM campaign) AS campaign_id,
+      (SELECT count(*)::int FROM entries) AS total_all,
+      paging.total,
+      paging."offset",
+      COALESCE(
+        (
+          SELECT json_agg(r ORDER BY r.participated_at DESC, r.id)
+          FROM (
+            SELECT * FROM filtered
+            ORDER BY participated_at DESC, id
+            LIMIT ${pageSize}::int
+            OFFSET (SELECT "offset" FROM paging)
+          ) r
+        ),
+        '[]'
+      ) AS rows
+    FROM paging
+  `) as PageResult<ParticipantJsonRow>[]
 
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    mobile: r.mobile,
-    imei: r.imei,
-    retailerEntered: r.retailer_entered,
-    retailerExpected: r.retailer_expected,
-    scratch: r.scratch ? scratchDbToDisplay[r.scratch] : "Pending",
-    verification: r.verification,
-    participatedAt: r.participated_at,
-  }))
+  return {
+    campaignId: result.campaign_id,
+    total: result.total,
+    totalAll: result.total_all,
+    page: result.offset / pageSize + 1,
+    pageSize,
+    rows: result.rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      mobile: r.mobile,
+      imei: r.imei,
+      retailerEntered: r.retailer_entered,
+      retailerAddress: r.retailer_address,
+      retailerExpected: r.retailer_expected,
+      scratchResultId: r.scratch_result_id,
+      scratch: scratchDbToDisplay[r.scratch],
+      verification: r.verification,
+      participatedAt: r.participated_at,
+    })),
+  }
 }
-

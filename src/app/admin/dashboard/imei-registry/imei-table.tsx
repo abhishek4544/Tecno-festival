@@ -14,6 +14,7 @@ import {
 import { setPrize } from "@/app/admin/dashboard/imei-registry/actions"
 import { PrizeBadge } from "@/components/dashboard/prize-badge"
 import { ImeiStatusBadge } from "@/components/dashboard/status-badge"
+import { TablePagination } from "@/components/dashboard/table-pagination"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -36,6 +37,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useSearchParamsNavigation } from "@/hooks/use-search-params-navigation"
+import { cn } from "@/lib/utils"
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination"
 import type { AssignedPrize, ImeiRecord, ImeiRegistryStatus } from "@/lib/types"
 
 /** Prizes assignable from the IMEI Registry. Gold Kite is NOT here — it's
@@ -77,35 +81,60 @@ function FilterLabel({ name, value }: { name: string; value: string }) {
   )
 }
 
-export function ImeiTable({ rows: all }: { rows: ImeiRecord[] }) {
+// How long to wait after the last keystroke before searching.
+const SEARCH_DEBOUNCE_MS = 300
+
+type ImeiTableProps = {
+  /** The current page of rows; filtering and paging happen on the server. */
+  rows: ImeiRecord[]
+  total: number
+  totalAll: number
+  page: number
+  pageSize: number
+  query: string
+  statusFilter: StatusFilter
+  prizeFilter: PrizeFilter
+}
+
+export function ImeiTable({
+  rows,
+  total,
+  totalAll,
+  page,
+  pageSize,
+  query,
+  statusFilter,
+  prizeFilter,
+}: ImeiTableProps) {
   const router = useRouter()
-  const [query, setQuery] = React.useState("")
-  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all")
-  const [prizeFilter, setPrizeFilter] = React.useState<PrizeFilter>("all")
+  const { navigate, isPending } = useSearchParamsNavigation()
+  const [search, setSearch] = React.useState(query)
+  const searchTimer = React.useRef<ReturnType<typeof setTimeout>>(undefined)
   const [busyId, setBusyId] = React.useState<string | null>(null)
 
-  const rows = React.useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return all.filter((r) => {
-      if (statusFilter !== "all" && r.status !== statusFilter) return false
-      if (prizeFilter !== "all") {
-        if (prizeFilter === "none" && r.assignedPrize !== null) return false
-        if (prizeFilter !== "none" && r.assignedPrize !== prizeFilter) return false
-      }
-      if (q) return r.imei.includes(q)
-      return true
-    })
-  }, [all, query, statusFilter, prizeFilter])
-
   const hasActiveFilter =
-    query !== "" ||
-    statusFilter !== "all" ||
-    prizeFilter !== "all"
+    query !== "" || statusFilter !== "all" || prizeFilter !== "all"
+
+  function changeSearch(value: string) {
+    setSearch(value)
+    clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => {
+      navigate({ q: value.trim(), page: null })
+    }, SEARCH_DEBOUNCE_MS)
+  }
 
   function clearFilters() {
-    setQuery("")
-    setStatusFilter("all")
-    setPrizeFilter("all")
+    clearTimeout(searchTimer.current)
+    setSearch("")
+    navigate({ q: null, status: null, prize: null, page: null })
+  }
+
+  function changePage(next: number) {
+    navigate({ page: next === 1 ? null : next })
+  }
+
+  function changePageSize(size: number) {
+    navigate({ size: size === DEFAULT_PAGE_SIZE ? null : size, page: null })
   }
 
   function requestPrizeChange(row: ImeiRecord, prize: AssignablePrize) {
@@ -129,8 +158,8 @@ export function ImeiTable({ rows: all }: { rows: ImeiRecord[] }) {
         <div className="relative min-w-[220px] flex-1 max-w-sm">
           <SearchIcon className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={search}
+            onChange={(e) => changeSearch(e.target.value)}
             placeholder="Search IMEI…"
             className="h-8 pl-8"
           />
@@ -138,7 +167,9 @@ export function ImeiTable({ rows: all }: { rows: ImeiRecord[] }) {
 
         <Select
           value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+          onValueChange={(v) =>
+            navigate({ status: v === "all" ? null : v, page: null })
+          }
         >
           <SelectTrigger size="sm" className="w-[230px]">
             <FilterLabel
@@ -159,7 +190,9 @@ export function ImeiTable({ rows: all }: { rows: ImeiRecord[] }) {
 
         <Select
           value={prizeFilter}
-          onValueChange={(v) => setPrizeFilter(v as PrizeFilter)}
+          onValueChange={(v) =>
+            navigate({ prize: v === "all" ? null : v, page: null })
+          }
         >
           <SelectTrigger size="sm" className="w-[180px]">
             <FilterLabel name="Prize" value={PRIZE_FILTER_LABELS[prizeFilter]} />
@@ -179,11 +212,17 @@ export function ImeiTable({ rows: all }: { rows: ImeiRecord[] }) {
         ) : null}
 
         <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-          {rows.length.toLocaleString()} of {all.length.toLocaleString()}
+          {total.toLocaleString()} of {totalAll.toLocaleString()}
         </span>
       </div>
 
-      <div className="overflow-hidden rounded border bg-card">
+      <div
+        aria-busy={isPending}
+        className={cn(
+          "overflow-hidden rounded border bg-card transition-opacity",
+          isPending && "opacity-60",
+        )}
+      >
         <Table className="min-w-[700px] table-fixed">
           <TableHeader className="bg-muted/40">
             <TableRow>
@@ -200,7 +239,7 @@ export function ImeiTable({ rows: all }: { rows: ImeiRecord[] }) {
                   colSpan={4}
                   className="h-24 text-center text-sm text-muted-foreground"
                 >
-                  {all.length === 0
+                  {totalAll === 0
                     ? "No IMEIs yet. Add one or import a batch."
                     : "No matches."}
                 </TableCell>
@@ -234,6 +273,15 @@ export function ImeiTable({ rows: all }: { rows: ImeiRecord[] }) {
         </Table>
       </div>
 
+      {total > 0 ? (
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={changePage}
+          onPageSizeChange={changePageSize}
+        />
+      ) : null}
     </>
   )
 }

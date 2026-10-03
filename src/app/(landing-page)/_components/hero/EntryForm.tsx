@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
 
+import { submitEntry } from '../../actions';
 import EntrySuccessModal from './EntrySuccessModal';
 import Button from '@/components/ui/buttons/Button';
 import Checkbox from '@/components/ui/inputs/Checkbox';
@@ -13,7 +13,7 @@ import Dropdown from '@/components/ui/inputs/Dropdown';
 import FormField, { getErrorId } from '@/components/ui/inputs/FormField';
 import TextField from '@/components/ui/inputs/TextField';
 
-import { TERMS_AND_CONDITIONS_PAGE } from '@/constants';
+import { externalLink } from '@/constants';
 import {
   entryFormSchema,
   IMEI_LENGTH,
@@ -35,13 +35,6 @@ const defaultValues: EntryFormInput = {
   agreeToTerms: false,
 };
 
-// TODO: replace with the API's result. Random until then so every outcome
-// (each prize, or no win) can be previewed.
-function mockPrize(): ScratchPrize | null {
-  const roll = Math.floor(Math.random() * (scratchPrizes.length + 1));
-  return scratchPrizes[roll] ?? null;
-}
-
 export default function EntryForm() {
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [prize, setPrize] = useState<ScratchPrize | null>(null);
@@ -52,6 +45,8 @@ export default function EntryForm() {
     register,
     handleSubmit,
     control,
+    setError,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<EntryFormInput, unknown, EntryFormValues>({
     resolver: zodResolver(entryFormSchema),
@@ -60,12 +55,34 @@ export default function EntryForm() {
 
   const imeiNumber = useWatch({ control, name: 'imeiNumber' });
 
-  // TODO: send `values` to the API and only open the modal once it's saved.
-  function onSubmit(values: EntryFormValues) {
-    void values;
-    setPrize(mockPrize());
+  async function onSubmit(values: EntryFormValues) {
+    let result: Awaited<ReturnType<typeof submitEntry>>;
+
+    try {
+      result = await submitEntry(values);
+    } catch {
+      setError('root', {
+        message: 'Could not reach the server. Please try again.',
+      });
+      return;
+    }
+
+    if (!result.ok) {
+      for (const [field, message] of Object.entries(result.fieldErrors ?? {})) {
+        setError(
+          field as keyof EntryFormInput,
+          { message },
+          { shouldFocus: true },
+        );
+      }
+      if (result.message) setError('root', { message: result.message });
+      return;
+    }
+
+    setPrize(scratchPrizes.find((p) => p.kind === result.prize) ?? null);
     setSubmissionCount((count) => count + 1);
     setIsSuccessOpen(true);
+    reset();
   }
 
   // aria-invalid / aria-describedby for a field, based on its current error.
@@ -178,26 +195,38 @@ export default function EntryForm() {
           label={
             <span className="text-slate-800">
               I have read and agree to the{' '}
-              <Link
-                href={TERMS_AND_CONDITIONS_PAGE}
+              <a
+                href={externalLink.termsOfUse}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-slate-950 underline"
               >
                 Terms &amp; Conditions
-              </Link>
+              </a>
             </span>
           }
           {...register('agreeToTerms')}
         />
 
-        <Button
-          type="submit"
-          variant="gold"
-          size="md"
-          disabled={isSubmitting}
-          className="w-full"
-        >
-          Submit Details
-        </Button>
+        <div className="flex flex-col gap-2">
+          <Button
+            type="submit"
+            variant="gold"
+            size="md"
+            disabled={isSubmitting}
+            className="w-full"
+          >
+            {isSubmitting ? 'Submitting…' : 'Submit Details'}
+          </Button>
+          {errors.root && (
+            <p
+              role="alert"
+              className="text-center text-caption-1-desktop text-red-600"
+            >
+              {errors.root.message}
+            </p>
+          )}
+        </div>
       </form>
 
       <EntrySuccessModal

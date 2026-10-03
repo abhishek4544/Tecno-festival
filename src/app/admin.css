@@ -1,4 +1,5 @@
 @import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -48,7 +49,10 @@
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.admin-scope {
+/* Tokens live on :root, not .admin-scope: dropdowns, selects and sheets
+   portal to <body>, outside the admin wrapper, and need them too. The
+   website doesn't reference any of these names. */
+:root {
   --background: oklch(0.995 0.002 265);
   --foreground: oklch(0.17 0.02 265);
   --card: oklch(1 0 0);
@@ -81,7 +85,9 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+}
 
+.admin-scope {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   background-color: var(--background);
   color: var(--foreground);
@@ -91,8 +97,7 @@
   font-feature-settings: 'cv11', 'ss01', 'ss03';
 }
 
-.admin-scope.dark,
-.dark .admin-scope {
+.dark {
   --background: oklch(0.15 0.015 265);
   --foreground: oklch(0.985 0.005 265);
   --card: oklch(0.21 0.02 265);
@@ -124,6 +129,23 @@
   --sidebar-accent-foreground: oklch(0.985 0.005 265);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.68 0.17 265);
+}
+
+@layer base {
+  /* Tailwind v4 borders default to currentColor (near-black). shadcn
+     components expect the theme border colour. Website borders always set
+     an explicit colour, so this doesn't change them. */
+  *,
+  ::before,
+  ::after,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border);
+  }
+
+  .admin-scope * {
+    outline-color: color-mix(in oklab, var(--color-ring) 50%, transparent);
+  }
 }
 
 .admin-scope h1,

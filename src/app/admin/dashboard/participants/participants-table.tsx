@@ -1,12 +1,18 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { SearchIcon, CheckIcon, XIcon } from "lucide-react"
 
+import {
+  failVerification,
+  passVerification,
+} from "@/app/admin/dashboard/participants/actions"
 import {
   ScratchBadge,
   VerificationBadge,
 } from "@/components/dashboard/status-badge"
+import { TablePagination } from "@/components/dashboard/table-pagination"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -23,7 +29,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { ParticipantRow, ScratchOutcome, VerificationStatus } from "@/lib/types"
+import { useSearchParamsNavigation } from "@/hooks/use-search-params-navigation"
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination"
+import type {
+  ParticipantRow,
+  ScratchOutcomeDb,
+  VerificationStatus,
+} from "@/lib/types"
+import { cn } from "@/lib/utils"
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
   day: "2-digit",
@@ -37,7 +50,7 @@ function isWin(scratch: ParticipantRow["scratch"]) {
 }
 
 type StatusFilter = "all" | VerificationStatus | "none"
-type PrizeFilter = "all" | ScratchOutcome
+type PrizeFilter = "all" | ScratchOutcomeDb
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
   all: "All",
@@ -49,9 +62,9 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
 
 const PRIZE_LABELS: Record<PrizeFilter, string> = {
   all: "All",
-  "Silver Kite": "Silver Kite",
-  "Silver Coin": "Silver Coin",
-  "Try Again": "Try Again",
+  SilverKite: "Silver Kite",
+  SilverCoin: "Silver Coin",
+  TryAgain: "Try Again",
   Pending: "Not scratched",
 }
 
@@ -64,46 +77,77 @@ function FilterLabel({ name, value }: { name: string; value: string }) {
   )
 }
 
-export function ParticipantsTable({ rows }: { rows: ParticipantRow[] }) {
-  const [query, setQuery] = React.useState("")
-  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all")
-  const [prizeFilter, setPrizeFilter] = React.useState<PrizeFilter>("all")
-  const [data, setData] = React.useState(rows)
+// How long to wait after the last keystroke before searching.
+const SEARCH_DEBOUNCE_MS = 300
 
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return data.filter((p) => {
-      if (statusFilter !== "all") {
-        if (statusFilter === "none") {
-          if (p.verification !== null) return false
-        } else if (p.verification !== statusFilter) {
-          return false
-        }
-      }
-      if (prizeFilter !== "all" && p.scratch !== prizeFilter) return false
-      if (!q) return true
-      return (
-        p.name.toLowerCase().includes(q) ||
-        p.mobile.includes(q) ||
-        p.imei.includes(q) ||
-        p.retailerEntered.toLowerCase().includes(q)
-      )
-    })
-  }, [data, query, statusFilter, prizeFilter])
+type ParticipantsTableProps = {
+  /** The current page of rows; filtering and paging happen on the server. */
+  rows: ParticipantRow[]
+  total: number
+  totalAll: number
+  page: number
+  pageSize: number
+  query: string
+  statusFilter: StatusFilter
+  prizeFilter: PrizeFilter
+}
+
+export function ParticipantsTable({
+  rows,
+  total,
+  totalAll,
+  page,
+  pageSize,
+  query,
+  statusFilter,
+  prizeFilter,
+}: ParticipantsTableProps) {
+  const router = useRouter()
+  const { navigate, isPending } = useSearchParamsNavigation()
+  const [search, setSearch] = React.useState(query)
+  const searchTimer = React.useRef<ReturnType<typeof setTimeout>>(undefined)
+  const [busyId, setBusyId] = React.useState<string | null>(null)
+  const [actionError, setActionError] = React.useState<string | null>(null)
 
   const hasActiveFilter =
     query !== "" || statusFilter !== "all" || prizeFilter !== "all"
 
-  function clearFilters() {
-    setQuery("")
-    setStatusFilter("all")
-    setPrizeFilter("all")
+  function changeSearch(value: string) {
+    setSearch(value)
+    clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => {
+      navigate({ q: value.trim(), page: null })
+    }, SEARCH_DEBOUNCE_MS)
   }
 
-  function resolve(id: string, status: "Confirmed" | "Rejected") {
-    setData((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, verification: status } : p)),
-    )
+  function clearFilters() {
+    clearTimeout(searchTimer.current)
+    setSearch("")
+    navigate({ q: null, status: null, prize: null, page: null })
+  }
+
+  function changePage(next: number) {
+    navigate({ page: next === 1 ? null : next })
+  }
+
+  function changePageSize(size: number) {
+    navigate({ size: size === DEFAULT_PAGE_SIZE ? null : size, page: null })
+  }
+
+  async function resolve(scratchResultId: string, pass: boolean) {
+    setBusyId(scratchResultId)
+    setActionError(null)
+    try {
+      const result = pass
+        ? await passVerification(scratchResultId)
+        : await failVerification(scratchResultId)
+      if (!result.ok) setActionError(result.message ?? "Could not update.")
+      router.refresh()
+    } catch {
+      setActionError("Could not update. Please try again.")
+    } finally {
+      setBusyId(null)
+    }
   }
 
   return (
@@ -112,8 +156,8 @@ export function ParticipantsTable({ rows }: { rows: ParticipantRow[] }) {
         <div className="relative min-w-[220px] flex-1 max-w-sm">
           <SearchIcon className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={search}
+            onChange={(e) => changeSearch(e.target.value)}
             placeholder="Search name, mobile, IMEI, retailer…"
             className="h-8 pl-8"
           />
@@ -121,7 +165,9 @@ export function ParticipantsTable({ rows }: { rows: ParticipantRow[] }) {
 
         <Select
           value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+          onValueChange={(v) =>
+            navigate({ status: v === "all" ? null : v, page: null })
+          }
         >
           <SelectTrigger size="sm" className="w-[180px]">
             <FilterLabel name="Status" value={STATUS_LABELS[statusFilter]} />
@@ -137,16 +183,18 @@ export function ParticipantsTable({ rows }: { rows: ParticipantRow[] }) {
 
         <Select
           value={prizeFilter}
-          onValueChange={(v) => setPrizeFilter(v as PrizeFilter)}
+          onValueChange={(v) =>
+            navigate({ prize: v === "all" ? null : v, page: null })
+          }
         >
           <SelectTrigger size="sm" className="w-[180px]">
             <FilterLabel name="Prize" value={PRIZE_LABELS[prizeFilter]} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All prizes</SelectItem>
-            <SelectItem value="Silver Kite">Silver Kite</SelectItem>
-            <SelectItem value="Silver Coin">Silver Coin</SelectItem>
-            <SelectItem value="Try Again">Try Again</SelectItem>
+            <SelectItem value="SilverKite">Silver Kite</SelectItem>
+            <SelectItem value="SilverCoin">Silver Coin</SelectItem>
+            <SelectItem value="TryAgain">Try Again</SelectItem>
             <SelectItem value="Pending">Not scratched</SelectItem>
           </SelectContent>
         </Select>
@@ -158,11 +206,23 @@ export function ParticipantsTable({ rows }: { rows: ParticipantRow[] }) {
         ) : null}
 
         <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-          {filtered.length.toLocaleString()} of {data.length.toLocaleString()}
+          {total.toLocaleString()} of {totalAll.toLocaleString()}
         </span>
       </div>
 
-      <div className="overflow-hidden rounded border bg-card">
+      {actionError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {actionError}
+        </p>
+      ) : null}
+
+      <div
+        aria-busy={isPending}
+        className={cn(
+          "overflow-hidden rounded border bg-card transition-opacity",
+          isPending && "opacity-60",
+        )}
+      >
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
@@ -177,13 +237,13 @@ export function ParticipantsTable({ rows }: { rows: ParticipantRow[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {rows.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={8}
                   className="h-24 text-center text-sm text-muted-foreground"
                 >
-                  {data.length === 0
+                  {totalAll === 0
                     ? "No participants yet."
                     : hasActiveFilter
                       ? "No matches for the active filter."
@@ -191,9 +251,13 @@ export function ParticipantsTable({ rows }: { rows: ParticipantRow[] }) {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((p) => {
+              rows.map((p) => {
+                const scratchResultId = p.scratchResultId
                 const canAct =
-                  isWin(p.scratch) && p.verification === "Pending"
+                  scratchResultId !== null &&
+                  isWin(p.scratch) &&
+                  p.verification === "Pending"
+                const isBusy = busyId !== null && busyId === scratchResultId
                 const retailerMismatch =
                   p.retailerExpected &&
                   p.retailerEntered.toLowerCase() !==
@@ -211,6 +275,9 @@ export function ParticipantsTable({ rows }: { rows: ParticipantRow[] }) {
                     <TableCell className="text-muted-foreground">
                       <div className="flex flex-col gap-0.5">
                         <span>{p.retailerEntered}</span>
+                        {p.retailerAddress ? (
+                          <span className="text-[11px]">{p.retailerAddress}</span>
+                        ) : null}
                         {retailerMismatch ? (
                           <span className="text-[11px] text-destructive">
                             Expected: {p.retailerExpected}
@@ -237,7 +304,8 @@ export function ParticipantsTable({ rows }: { rows: ParticipantRow[] }) {
                           <Button
                             size="xs"
                             variant="outline"
-                            onClick={() => resolve(p.id, "Confirmed")}
+                            disabled={isBusy}
+                            onClick={() => resolve(scratchResultId, true)}
                           >
                             <CheckIcon />
                             Pass
@@ -245,7 +313,8 @@ export function ParticipantsTable({ rows }: { rows: ParticipantRow[] }) {
                           <Button
                             size="xs"
                             variant="outline"
-                            onClick={() => resolve(p.id, "Rejected")}
+                            disabled={isBusy}
+                            onClick={() => resolve(scratchResultId, false)}
                           >
                             <XIcon />
                             Fail
@@ -262,6 +331,16 @@ export function ParticipantsTable({ rows }: { rows: ParticipantRow[] }) {
           </TableBody>
         </Table>
       </div>
+
+      {total > 0 ? (
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={changePage}
+          onPageSizeChange={changePageSize}
+        />
+      ) : null}
     </>
   )
 }

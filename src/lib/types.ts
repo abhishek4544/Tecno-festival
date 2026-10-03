@@ -43,7 +43,10 @@ export type ParticipantRow = {
   mobile: string
   imei: string
   retailerEntered: string
+  retailerAddress: string | null
   retailerExpected: string | null
+  /** scratch_results row the Pass/Fail actions act on. */
+  scratchResultId: string | null
   scratch: ScratchOutcome
   verification: VerificationStatus | null
   participatedAt: string
