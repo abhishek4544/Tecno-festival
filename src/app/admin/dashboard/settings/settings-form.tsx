@@ -2,7 +2,12 @@
 
 import * as React from "react"
 import { useActionState } from "react"
-import { AlertTriangleIcon, CheckCircle2Icon, GiftIcon, SparklesIcon } from "lucide-react"
+import {
+  AlertTriangleIcon,
+  CheckCircle2Icon,
+  GiftIcon,
+  SparklesIcon,
+} from "lucide-react"
 
 import {
   saveCampaignSettings,
@@ -11,10 +16,8 @@ import {
 import { PageHeader } from "@/components/dashboard/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import {
   Select,
   SelectContent,
@@ -23,9 +26,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { CampaignSettings } from "@/lib/db-queries"
-import type { CampaignStatus } from "@/lib/types"
+import { sortTiers } from "@/lib/silver-coin-tiers"
+import type { CampaignStatus, SilverCoinTier } from "@/lib/types"
 
-const statuses: CampaignStatus[] = [
+const STATUSES: CampaignStatus[] = [
   "Draft",
   "Scheduled",
   "Active",
@@ -35,18 +39,18 @@ const statuses: CampaignStatus[] = [
 
 const initial: SaveSettingsState = { ok: false }
 
+const DEFAULT_COIN_TIERS: SilverCoinTier[] = [
+  { upTo: 100, coins: 2 },
+  { upTo: 200, coins: 3 },
+  { upTo: null, coins: 4 },
+]
+
 export function SettingsForm({ settings }: { settings: CampaignSettings }) {
   const [state, formAction, pending] = useActionState(
     saveCampaignSettings,
     initial,
   )
   const [status, setStatus] = React.useState<CampaignStatus>(settings.status)
-  const [scratchEnabled, setScratchEnabled] = React.useState(
-    settings.scratchEnabled,
-  )
-  const [goldKiteEnabled, setGoldKiteEnabled] = React.useState(
-    settings.goldKiteEnabled,
-  )
   const formRef = React.useRef<HTMLFormElement | null>(null)
 
   const errs = state.fieldErrors ?? {}
@@ -117,7 +121,7 @@ export function SettingsForm({ settings }: { settings: CampaignSettings }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {statuses.map((s) => (
+                  {STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
                       {s}
                     </SelectItem>
@@ -131,55 +135,58 @@ export function SettingsForm({ settings }: { settings: CampaignSettings }) {
         <Card>
           <CardContent className="flex flex-col gap-6 p-6">
             <div className="flex flex-col gap-0.5">
-              <h2 className="text-sm font-semibold">Reward inventory</h2>
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                <GiftIcon className="size-4" />
+                Silver Coin — sales-based cap
+              </h2>
               <p className="text-xs text-muted-foreground">
-                How many of each instant reward are available. Cannot be lowered
-                below what&rsquo;s already distributed.
+                Cap grows as total participants cross each threshold. Admins
+                can still pre-assign a Silver Coin to a specific IMEI; that
+                award bypasses the cap.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+                {settings.silverCoin.distributed.toLocaleString()} coins
+                already distributed.
               </p>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2">
-              <RewardField
-                name="silverKiteTotal"
-                label="Silver Kite"
-                tone="var(--chart-5)"
-                icon={SparklesIcon}
-                defaultValue={settings.silverKite.total}
-                distributed={settings.silverKite.distributed}
-                error={errs.silverKiteTotal}
-              />
-              <RewardField
-                name="silverCoinTotal"
-                label="Silver Coin"
-                tone="var(--chart-2)"
-                icon={GiftIcon}
-                defaultValue={settings.silverCoin.total}
-                distributed={settings.silverCoin.distributed}
-                error={errs.silverCoinTotal}
-              />
-            </div>
+            <CoinTiers tiers={settings.silverCoinTiers} errors={errs} />
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="flex flex-col gap-6 p-6">
-            <Toggle
-              name="scratchEnabled"
-              label="Scratch card enabled"
-              hint="Customers with valid IMEIs can reveal an instant reward."
-              checked={scratchEnabled}
-              onChange={setScratchEnabled}
-            />
+            <div className="flex flex-col gap-0.5">
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                <SparklesIcon className="size-4" />
+                Silver Kite — per-week count
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                How many Silver Kites get drawn in each weekly window. Winning
+                moments are picked at random times inside the week; the kite is
+                awarded to the next entry after a winning moment passes.
+                Admins can still pre-assign a Silver Kite to a specific IMEI;
+                that award is in addition to the weekly draw.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+                {settings.silverKite.distributed.toLocaleString()} kites
+                already distributed.
+              </p>
+            </div>
 
-            <Separator />
-
-            <Toggle
-              name="goldKiteEnabled"
-              label="Gold Kite Grand Draw enabled"
-              hint="The pre-marked IMEI wins the Grand Prize when it registers."
-              checked={goldKiteEnabled}
-              onChange={setGoldKiteEnabled}
-            />
+            <Field
+              label="Kites per week"
+              error={errs.silverKitePerWeek}
+            >
+              <Input
+                type="number"
+                name="silverKitePerWeek"
+                min={0}
+                step={1}
+                defaultValue={settings.silverKitePerWeek}
+                className="w-[120px] tabular-nums"
+              />
+            </Field>
           </CardContent>
         </Card>
       </div>
@@ -209,80 +216,102 @@ function Field({
   )
 }
 
-function RewardField({
-  name,
-  label,
-  tone,
-  icon: Icon,
-  defaultValue,
-  distributed,
-  error,
+function CoinTiers({
+  tiers,
+  errors,
 }: {
-  name: string
-  label: string
-  tone: string
-  icon: React.ComponentType<{ className?: string }>
-  defaultValue: number
-  distributed: number
-  error?: string
+  tiers: SilverCoinTier[]
+  errors: NonNullable<SaveSettingsState["fieldErrors"]>
 }) {
+  const sorted = sortTiers(tiers.length > 0 ? tiers : DEFAULT_COIN_TIERS)
+  const tier0 = sorted[0] ?? DEFAULT_COIN_TIERS[0]!
+  const tier1 = sorted[1] ?? DEFAULT_COIN_TIERS[1]!
+  const tierOpen =
+    sorted.find((t) => t.upTo === null) ?? sorted[2] ?? DEFAULT_COIN_TIERS[2]!
+
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label
-        className="flex items-center gap-2 text-xs font-medium tracking-wide uppercase"
-        style={{ color: tone }}
-      >
-        <Icon className="size-3.5" />
-        {label}
-      </Label>
-      <Input
-        type="number"
-        name={name}
-        min={0}
-        defaultValue={defaultValue}
-        className="max-w-[180px] tabular-nums"
+    <div className="flex flex-col gap-4">
+      <TierRow
+        label="Up to"
+        upToName="silverCoinTier0UpTo"
+        upToDefault={tier0.upTo ?? DEFAULT_COIN_TIERS[0]!.upTo!}
+        coinsName="silverCoinTier0Coins"
+        coinsDefault={tier0.coins}
+        upToError={errors.silverCoinTier0UpTo}
+        coinsError={errors.silverCoinTier0Coins}
       />
-      <span className="text-xs text-muted-foreground tabular-nums">
-        {distributed.toLocaleString()} already distributed
-      </span>
-      {error ? (
-        <span className="text-xs text-destructive">{error}</span>
-      ) : null}
+      <TierRow
+        label="Up to"
+        upToName="silverCoinTier1UpTo"
+        upToDefault={tier1.upTo ?? DEFAULT_COIN_TIERS[1]!.upTo!}
+        coinsName="silverCoinTier1Coins"
+        coinsDefault={tier1.coins}
+        upToError={errors.silverCoinTier1UpTo}
+        coinsError={errors.silverCoinTier1Coins}
+      />
+      <TierRow
+        label="More than tier 2"
+        coinsName="silverCoinTier2Coins"
+        coinsDefault={tierOpen.coins}
+        coinsError={errors.silverCoinTier2Coins}
+      />
     </div>
   )
 }
 
-function Toggle({
-  name,
+function TierRow({
   label,
-  hint,
-  checked,
-  onChange,
+  upToName,
+  upToDefault,
+  coinsName,
+  coinsDefault,
+  upToError,
+  coinsError,
 }: {
-  name: string
   label: string
-  hint: string
-  checked: boolean
-  onChange: (next: boolean) => void
+  upToName?: string
+  upToDefault?: number
+  coinsName: string
+  coinsDefault: number
+  upToError?: string
+  coinsError?: string
 }) {
+  const openEnded = !upToName
   return (
-    <label className="group/field flex cursor-pointer items-start gap-3">
-      <input
-        type="checkbox"
-        name={name}
-        checked={checked}
-        onChange={() => {}}
-        className="sr-only"
-      />
-      <Checkbox
-        checked={checked}
-        onCheckedChange={(next) => onChange(next === true)}
-        className="mt-0.5"
-      />
-      <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium">{label}</span>
-        <span className="text-xs text-muted-foreground">{hint}</span>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        {openEnded ? (
+          <span className="font-medium tabular-nums">sales</span>
+        ) : (
+          <>
+            <Input
+              type="number"
+              name={upToName}
+              min={1}
+              step={1}
+              defaultValue={upToDefault}
+              className="w-[110px] tabular-nums"
+            />
+            <span className="text-muted-foreground">sales</span>
+          </>
+        )}
+        <span className="text-muted-foreground">→</span>
+        <Input
+          type="number"
+          name={coinsName}
+          min={0}
+          step={1}
+          defaultValue={coinsDefault}
+          className="w-[80px] tabular-nums"
+        />
+        <span className="text-muted-foreground">silver coins total</span>
       </div>
-    </label>
+      {upToError || coinsError ? (
+        <span className="text-xs text-destructive">
+          {upToError ?? coinsError}
+        </span>
+      ) : null}
+    </div>
   )
 }

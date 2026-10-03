@@ -10,6 +10,7 @@ import type {
   ParticipantRow,
   ScratchOutcome,
   ScratchOutcomeDb,
+  SilverCoinTier,
   VerificationStatus,
 } from "@/lib/types"
 
@@ -188,10 +189,12 @@ export type CampaignSettings = {
   endAt: string
   status: CampaignStatus
   termsUrl: string
-  scratchEnabled: boolean
-  goldKiteEnabled: boolean
   silverKite: { total: number; distributed: number }
   silverCoin: { total: number; distributed: number }
+  /** Cumulative sales-based cap for Silver Coin. */
+  silverCoinTiers: SilverCoinTier[]
+  /** How many Silver Kites get drawn per weekly window. */
+  silverKitePerWeek: number
 }
 
 export async function getCampaignSettings(): Promise<CampaignSettings | null> {
@@ -207,8 +210,8 @@ export async function getCampaignSettings(): Promise<CampaignSettings | null> {
       to_char(c.end_at, 'YYYY-MM-DD') AS "endAt",
       c.status,
       COALESCE(c.terms_url, '') AS "termsUrl",
-      c.scratch_enabled AS "scratchEnabled",
-      c.gold_kite_enabled AS "goldKiteEnabled"
+      c.silver_coin_tiers AS "silverCoinTiers",
+      c.silver_kite_per_week AS "silverKitePerWeek"
     FROM campaigns c
     WHERE c.id = ${campaign.id}
   `) as Array<Omit<CampaignSettings, "silverKite" | "silverCoin">>
@@ -505,6 +508,9 @@ export type OverviewStats = {
   kitesThisWeek: number
   silverKite: { total: number; distributed: number }
   silverCoin: { total: number; distributed: number }
+  /** Live tier config so the dashboard's today-draw card stays in sync. */
+  silverCoinTiers: SilverCoinTier[]
+  silverKitePerWeek: number
 }
 
 /**
@@ -514,7 +520,8 @@ export type OverviewStats = {
 export async function getOverviewStats(): Promise<OverviewStats> {
   const [r] = (await sql`
     WITH campaign AS (
-      SELECT id, name, start_at, end_at FROM campaigns
+      SELECT id, name, start_at, end_at, silver_coin_tiers, silver_kite_per_week
+      FROM campaigns
       WHERE status = 'Active'
       ORDER BY start_at DESC
       LIMIT 1
@@ -573,7 +580,9 @@ export async function getOverviewStats(): Promise<OverviewStats> {
       (SELECT total FROM stock WHERE kind = 'SilverKite') AS sk_total,
       (SELECT distributed FROM stock WHERE kind = 'SilverKite') AS sk_distributed,
       (SELECT total FROM stock WHERE kind = 'SilverCoin') AS sc_total,
-      (SELECT distributed FROM stock WHERE kind = 'SilverCoin') AS sc_distributed
+      (SELECT distributed FROM stock WHERE kind = 'SilverCoin') AS sc_distributed,
+      (SELECT silver_coin_tiers FROM campaign) AS silver_coin_tiers,
+      (SELECT silver_kite_per_week FROM campaign) AS silver_kite_per_week
   `) as Array<{
     campaign: OverviewStats["campaign"]
     participants: number
@@ -587,6 +596,8 @@ export async function getOverviewStats(): Promise<OverviewStats> {
     sk_distributed: number | null
     sc_total: number | null
     sc_distributed: number | null
+    silver_coin_tiers: SilverCoinTier[] | null
+    silver_kite_per_week: number | null
   }>
 
   return {
@@ -600,5 +611,7 @@ export async function getOverviewStats(): Promise<OverviewStats> {
     kitesThisWeek: r.kites_this_week,
     silverKite: { total: r.sk_total ?? 0, distributed: r.sk_distributed ?? 0 },
     silverCoin: { total: r.sc_total ?? 0, distributed: r.sc_distributed ?? 0 },
+    silverCoinTiers: r.silver_coin_tiers ?? [],
+    silverKitePerWeek: r.silver_kite_per_week ?? 0,
   }
 }

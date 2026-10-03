@@ -5,16 +5,15 @@ import {
   CheckCircle2Icon,
   ClockIcon,
   CoinsIcon,
-  RotateCcwIcon,
   SparklesIcon,
   UsersIcon,
   WindIcon,
 } from "lucide-react"
 import type { ComponentType, SVGProps } from "react"
 
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { getOverviewStats } from "@/lib/db-queries"
+import { resolveSilverCoinCap, sortTiers } from "@/lib/silver-coin-tiers"
 
 type Accent = 1 | 2 | 3 | 5
 
@@ -26,14 +25,6 @@ type Kpi = {
   accent: Accent
   href?: string
 }
-
-// Display copies of the draw rules in the claim_entry database function.
-const COIN_TIERS = [
-  { fromSales: 0, coins: 2 },
-  { fromSales: 100, coins: 3 },
-  { fromSales: 200, coins: 4 },
-]
-const KITES_PER_WEEK = 2
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -56,16 +47,21 @@ export default async function Page() {
     )
   }
 
-  const { silverKite, silverCoin } = stats
+  const { silverKite, silverCoin, silverCoinTiers, silverKitePerWeek } = stats
   const prizesGiven = silverKite.distributed + silverCoin.distributed
   const prizesLeft =
     silverKite.total - silverKite.distributed +
     (silverCoin.total - silverCoin.distributed)
 
-  const tier = COIN_TIERS.findLast((t) => stats.participantsToday > t.fromSales)
-  const coinsUnlocked = tier?.coins ?? COIN_TIERS[0]!.coins
-  const nextTier = COIN_TIERS.find(
-    (t) => t.fromSales > 0 && stats.participantsToday <= t.fromSales,
+  // Resolve the cap for the current sales count directly from the live tier
+  // config — this is the same algorithm used by claim_entry server-side.
+  const coinsUnlocked = resolveSilverCoinCap(
+    silverCoinTiers,
+    stats.participantsToday,
+  )
+  const sortedTiers = sortTiers(silverCoinTiers)
+  const nextTier = sortedTiers.find(
+    (t) => t.upTo !== null && stats.participantsToday <= t.upTo && t.coins > coinsUnlocked,
   )
 
   const kpis: Kpi[] = [
@@ -117,7 +113,7 @@ export default async function Page() {
         ))}
       </section>
 
-      <section className="grid grid-cols-1 gap-3 px-4 lg:px-6 @5xl/main:grid-cols-2">
+      <section className="px-4 lg:px-6">
         <Card>
           <CardContent className="flex flex-col gap-5 p-6">
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -132,7 +128,7 @@ export default async function Page() {
               limit={coinsUnlocked}
               note={
                 nextTier
-                  ? `${stats.participantsToday.toLocaleString()} sales today · limit rises to ${nextTier.coins} after ${nextTier.fromSales} sales`
+                  ? `${stats.participantsToday.toLocaleString()} sales today · limit rises to ${nextTier.coins} after ${nextTier.upTo} sales`
                   : `${stats.participantsToday.toLocaleString()} sales today · daily maximum reached`
               }
             />
@@ -141,42 +137,11 @@ export default async function Page() {
               tone="var(--chart-5)"
               label="Silver Kites this week"
               given={stats.kitesThisWeek}
-              limit={KITES_PER_WEEK}
-              note="2 random moments each campaign week"
+              limit={silverKitePerWeek}
+              note={`${silverKitePerWeek} random ${
+                silverKitePerWeek === 1 ? "moment" : "moments"
+              } each campaign week`}
             />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="flex flex-col gap-5 p-6">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Prize stock
-              </span>
-              <Button
-                size="xs"
-                variant="ghost"
-                nativeButton={false}
-                render={<Link href="/admin/dashboard/settings" />}
-              >
-                Edit stock
-                <ArrowRightIcon />
-              </Button>
-            </div>
-
-            <RewardBar
-              label="Silver Kite"
-              tone="var(--chart-5)"
-              total={silverKite.total}
-              distributed={silverKite.distributed}
-            />
-            <RewardBar
-              label="Silver Coin"
-              tone="var(--chart-2)"
-              total={silverCoin.total}
-              distributed={silverCoin.distributed}
-            />
-            <TryAgainRow count={stats.tryAgain} />
           </CardContent>
         </Card>
       </section>
@@ -265,70 +230,5 @@ function KpiCard({ label, value, footer, icon: Icon, accent, href }: Kpi) {
     </Link>
   ) : (
     body
-  )
-}
-
-function RewardBar({
-  label,
-  tone,
-  total,
-  distributed,
-}: {
-  label: string
-  tone: string
-  total: number
-  distributed: number
-}) {
-  const pct = total > 0 ? Math.round((distributed / total) * 100) : 0
-  const remaining = total - distributed
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="inline-flex items-center gap-2 text-sm font-medium">
-          <span
-            aria-hidden
-            className="size-2 rounded-full"
-            style={{ background: tone }}
-          />
-          {label}
-        </span>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          <span className="font-medium text-foreground">
-            {distributed.toLocaleString()}
-          </span>
-          {" / "}
-          {total.toLocaleString()}
-          <span className="ml-2">({remaining.toLocaleString()} left)</span>
-        </span>
-      </div>
-      <div className="relative h-1.5 overflow-hidden rounded-full bg-muted">
-        <div
-          className="absolute inset-y-0 left-0 rounded-full"
-          style={{ width: `${pct}%`, background: tone }}
-        />
-      </div>
-    </div>
-  )
-}
-
-function TryAgainRow({ count }: { count: number }) {
-  const tone = "var(--muted-foreground)"
-  return (
-    <div className="flex items-center justify-between gap-2 border-t pt-4">
-      <span className="inline-flex items-center gap-2 text-sm font-medium">
-        <span
-          aria-hidden
-          className="flex size-5 items-center justify-center rounded-full"
-          style={{ color: tone, background: `color-mix(in oklch, ${tone} 14%, transparent)` }}
-        >
-          <RotateCcwIcon className="size-3" />
-        </span>
-        Try Again
-      </span>
-      <span className="text-xs text-muted-foreground tabular-nums">
-        <span className="font-medium text-foreground">{count}</span>
-        <span className="ml-2">no-prize scratches</span>
-      </span>
-    </div>
   )
 }
