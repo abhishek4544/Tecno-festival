@@ -183,66 +183,16 @@ export async function submitEntry(
       if (failed >= MAX_FAILED_ATTEMPTS) return reject('RateLimited');
     }
 
-    // One statement so the IMEI claim and prize stock update are atomic:
-    // - the participants unique (campaign_id, imei) key stops double entries,
-    // - `distributed < total` is re-checked under the row lock, so concurrent
-    //   winners can't push a reward past its stock.
+    // claim_entry is a Postgres function in the Neon database: it registers
+    // the entry and runs the daily Silver Coin / weekly Silver Kite draw in
+    // one transaction.
     const [claim] = (await sql`
-      WITH registry AS (
-        SELECT id, status, assigned_prize
-        FROM imei_registry
-        WHERE campaign_id = ${campaign.id} AND imei = ${values.imeiNumber}
-      ),
-      participant AS (
-        INSERT INTO participants (
-          campaign_id, full_name, mobile, imei, imei_registry_id,
-          retailer_name, retailer_address
-        )
-        SELECT
-          ${campaign.id}, ${values.fullName}, ${values.mobileNumber},
-          ${values.imeiNumber}, registry.id, ${values.retailerStoreName},
-          ${retailerAddress.label}
-        FROM registry
-        WHERE registry.status = 'Unused'
-        ON CONFLICT (campaign_id, imei) DO NOTHING
-        RETURNING id
-      ),
-      reward AS (
-        UPDATE rewards
-        SET distributed = distributed + 1
-        WHERE campaign_id = ${campaign.id}
-          AND ${campaign.scratch_enabled}
-          AND kind = (SELECT assigned_prize FROM registry)
-          AND kind IN ('SilverKite', 'SilverCoin')
-          AND distributed < total
-          AND EXISTS (SELECT 1 FROM participant)
-        RETURNING kind
-      ),
-      scratch AS (
-        INSERT INTO scratch_results (participant_id, outcome, verification_status)
-        SELECT
-          participant.id,
-          COALESCE((SELECT kind::text FROM reward), 'TryAgain')::scratch_outcome,
-          CASE
-            WHEN EXISTS (SELECT 1 FROM reward) THEN 'Pending'::verification_status
-          END
-        FROM participant
-        RETURNING outcome
-      ),
-      registry_update AS (
-        UPDATE imei_registry
-        SET
-          validation_attempts = validation_attempts + 1,
-          status = CASE
-            WHEN EXISTS (SELECT 1 FROM participant) THEN 'Used'::imei_status
-            ELSE status
-          END
-        WHERE id = (SELECT id FROM registry)
+      SELECT imei_status, participant_id, prize
+      FROM claim_entry(
+        ${campaign.id}, ${values.fullName}, ${values.mobileNumber},
+        ${values.imeiNumber}, ${values.retailerStoreName},
+        ${retailerAddress.label}, ${campaign.scratch_enabled}
       )
-      SELECT
-        (SELECT status FROM registry) AS imei_status,
-        (SELECT id FROM participant) AS participant_id,
-        (SELECT kind FROM reward) AS prize
     `) as ClaimRow[];
 
     if (!claim.participant_id) {

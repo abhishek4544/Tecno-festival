@@ -13,6 +13,14 @@ import {
   VerificationBadge,
 } from "@/components/dashboard/status-badge"
 import { TablePagination } from "@/components/dashboard/table-pagination"
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -44,6 +52,12 @@ const dateFmt = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit",
   minute: "2-digit",
 })
+
+type Decision = {
+  participant: ParticipantRow
+  scratchResultId: string
+  pass: boolean
+}
 
 function isWin(scratch: ParticipantRow["scratch"]) {
   return scratch === "Silver Kite" || scratch === "Silver Coin"
@@ -108,6 +122,10 @@ export function ParticipantsTable({
   const searchTimer = React.useRef<ReturnType<typeof setTimeout>>(undefined)
   const [busyId, setBusyId] = React.useState<string | null>(null)
   const [actionError, setActionError] = React.useState<string | null>(null)
+  // The Pass/Fail awaiting confirmation. Kept after closing so the dialog's
+  // text doesn't vanish during its exit animation; `isConfirmOpen` drives it.
+  const [decision, setDecision] = React.useState<Decision | null>(null)
+  const [isConfirmOpen, setIsConfirmOpen] = React.useState(false)
 
   const hasActiveFilter =
     query !== "" || statusFilter !== "all" || prizeFilter !== "all"
@@ -134,7 +152,14 @@ export function ParticipantsTable({
     navigate({ size: size === DEFAULT_PAGE_SIZE ? null : size, page: null })
   }
 
-  async function resolve(scratchResultId: string, pass: boolean) {
+  function askToConfirm(next: Decision) {
+    setDecision(next)
+    setIsConfirmOpen(true)
+  }
+
+  async function confirmDecision() {
+    if (!decision) return
+    const { scratchResultId, pass } = decision
     setBusyId(scratchResultId)
     setActionError(null)
     try {
@@ -147,8 +172,11 @@ export function ParticipantsTable({
       setActionError("Could not update. Please try again.")
     } finally {
       setBusyId(null)
+      setIsConfirmOpen(false)
     }
   }
+
+  const isConfirming = decision !== null && busyId === decision.scratchResultId
 
   return (
     <>
@@ -305,7 +333,13 @@ export function ParticipantsTable({
                             size="xs"
                             variant="outline"
                             disabled={isBusy}
-                            onClick={() => resolve(scratchResultId, true)}
+                            onClick={() =>
+                              askToConfirm({
+                                participant: p,
+                                scratchResultId,
+                                pass: true,
+                              })
+                            }
                           >
                             <CheckIcon />
                             Pass
@@ -314,7 +348,13 @@ export function ParticipantsTable({
                             size="xs"
                             variant="outline"
                             disabled={isBusy}
-                            onClick={() => resolve(scratchResultId, false)}
+                            onClick={() =>
+                              askToConfirm({
+                                participant: p,
+                                scratchResultId,
+                                pass: false,
+                              })
+                            }
                           >
                             <XIcon />
                             Fail
@@ -341,6 +381,84 @@ export function ParticipantsTable({
           onPageSizeChange={changePageSize}
         />
       ) : null}
+
+      <AlertDialog
+        open={isConfirmOpen}
+        onOpenChange={(open) => {
+          // Stay open while the change is being saved.
+          if (!open && !isConfirming) setIsConfirmOpen(false)
+        }}
+      >
+        <AlertDialogContent>
+          {decision ? (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {decision.pass ? "Pass this win?" : "Fail this win?"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {decision.pass
+                    ? `This confirms the ${decision.participant.scratch} for ${decision.participant.name}.`
+                    : `This rejects the ${decision.participant.scratch} for ${decision.participant.name} and returns it to stock.`}{" "}
+                  This can&apos;t be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded border bg-muted/40 p-3 text-xs">
+                <dt className="text-muted-foreground">Prize</dt>
+                <dd className="font-medium">{decision.participant.scratch}</dd>
+                <dt className="text-muted-foreground">Mobile</dt>
+                <dd className="tabular-nums">{decision.participant.mobile}</dd>
+                <dt className="text-muted-foreground">IMEI</dt>
+                <dd className="font-mono tabular-nums">
+                  {decision.participant.imei}
+                </dd>
+                <dt className="text-muted-foreground">Retailer</dt>
+                <dd>
+                  {decision.participant.retailerEntered}
+                  {decision.participant.retailerAddress
+                    ? ` · ${decision.participant.retailerAddress}`
+                    : ""}
+                </dd>
+                {decision.participant.retailerExpected &&
+                decision.participant.retailerExpected.toLowerCase() !==
+                  decision.participant.retailerEntered.toLowerCase() ? (
+                  <>
+                    <dt className="text-muted-foreground">Expected</dt>
+                    <dd className="text-destructive">
+                      {decision.participant.retailerExpected}
+                    </dd>
+                  </>
+                ) : null}
+              </dl>
+
+              <AlertDialogFooter>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isConfirming}
+                  onClick={() => setIsConfirmOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant={decision.pass ? "default" : "destructive"}
+                  size="sm"
+                  disabled={isConfirming}
+                  onClick={() => void confirmDecision()}
+                >
+                  {decision.pass ? <CheckIcon /> : <XIcon />}
+                  {isConfirming
+                    ? "Saving…"
+                    : decision.pass
+                      ? "Confirm pass"
+                      : "Confirm fail"}
+                </Button>
+              </AlertDialogFooter>
+            </>
+          ) : null}
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

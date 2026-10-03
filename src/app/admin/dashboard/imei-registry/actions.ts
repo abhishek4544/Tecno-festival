@@ -2,12 +2,23 @@
 
 import { revalidatePath } from "next/cache"
 
+import { logAdminAction } from "@/lib/audit-log"
 import { requireAdmin } from "@/lib/auth"
 import { sql } from "@/lib/db"
 import { getActiveCampaign } from "@/lib/db-queries"
 import type { AssignedPrize } from "@/lib/types"
 
 const IMEI_RE_SHARED = /^\d{15}$/
+
+const PRIZE_LABELS: Record<NonNullable<AssignedPrize>, string> = {
+  SilverKite: "Silver Kite",
+  SilverCoin: "Silver Coin",
+  GoldKite: "Gold Kite",
+}
+
+function prizeLabel(prize: AssignedPrize) {
+  return prize ? PRIZE_LABELS[prize] : "Random Gift"
+}
 
 // Values accepted from the Add IMEI form. Gold Kite is NOT assignable — it's
 // a lottery over valid entries drawn at campaign close.
@@ -43,8 +54,9 @@ export async function addImei(
   const campaign = await getActiveCampaign()
   if (!campaign) return { ok: false, message: "No active campaign found." }
 
+  let imeiId: string
   try {
-    await sql`
+    const [row] = (await sql`
       INSERT INTO imei_registry (
         campaign_id, imei, device_model, batch_code,
         source, assigned_prize, notes
@@ -52,7 +64,9 @@ export async function addImei(
         ${campaign.id}, ${imei}, ${deviceModel}, ${batch},
         'Manual', ${prize}, ${notes}
       )
-    `
+      RETURNING id
+    `) as { id: string }[]
+    imeiId = row!.id
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     if (/duplicate key value/.test(message) && /campaign_id, imei/.test(message)) {
@@ -63,6 +77,15 @@ export async function addImei(
     }
     return { ok: false, message: "Could not save IMEI." }
   }
+
+  await logAdminAction({
+    action: "imei.add",
+    summary: `Added IMEI ${imei} (prize: ${prizeLabel(prize)})`,
+    campaignId: campaign.id,
+    entityType: "imei",
+    entityId: imeiId,
+    details: { imei, deviceModel, batch, prize },
+  })
 
   revalidatePath("/admin/dashboard/imei-registry")
   return { ok: true }
@@ -83,11 +106,27 @@ export async function setPrize(
   const campaign = await getActiveCampaign()
   if (!campaign) return { ok: false, message: "No active campaign." }
 
-  await sql`
-    UPDATE imei_registry
+  // The self-join reads the row as it was before the update, for the log.
+  const [changed] = (await sql`
+    UPDATE imei_registry i
     SET assigned_prize = ${prize}::reward_kind
-    WHERE campaign_id = ${campaign.id} AND id = ${imeiId}
-  `
+    FROM imei_registry before
+    WHERE before.id = i.id
+      AND i.campaign_id = ${campaign.id}
+      AND i.id = ${imeiId}
+    RETURNING i.imei, before.assigned_prize AS previous
+  `) as { imei: string; previous: AssignedPrize }[]
+
+  if (changed && changed.previous !== prize) {
+    await logAdminAction({
+      action: "imei.prize",
+      summary: `IMEI ${changed.imei} prize: ${prizeLabel(changed.previous)} → ${prizeLabel(prize)}`,
+      campaignId: campaign.id,
+      entityType: "imei",
+      entityId: imeiId,
+      details: { imei: changed.imei, from: changed.previous, to: prize },
+    })
+  }
 
   revalidatePath("/admin/dashboard/imei-registry")
   return { ok: true }
@@ -280,8 +319,21 @@ export async function commitImeiImport(
     WHERE id = ${batchId}
   `
 
+  await logAdminAction({
+    action: "imei.import",
+    summary: `Imported ${importedCount.toLocaleString()} IMEIs from ${fileName} (${duplicatesCount} duplicates, ${failedCount} invalid)`,
+    campaignId: campaign.id,
+    entityType: "import_batch",
+    entityId: batchId,
+    details: {
+      fileName,
+      imported: importedCount,
+      duplicates: duplicatesCount,
+      failed: failedCount,
+    },
+  })
+
   revalidatePath("/admin/dashboard/imei-registry")
-  revalidatePath("/admin/dashboard/gold-kite-draw")
 
   return {
     ok: true,

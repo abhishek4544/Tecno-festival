@@ -1,9 +1,8 @@
 import {
-  GiftIcon,
   LayoutDashboardIcon,
+  ScrollTextIcon,
   SettingsIcon,
   SmartphoneIcon,
-  TrophyIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react"
@@ -22,16 +21,12 @@ export const operationsNav: NavItem[] = [
   { title: "Participants", url: "/admin/dashboard/participants", icon: UsersIcon },
 ]
 
-export const rewardsNav: NavItem[] = [
-  { title: "Scratch Rewards", url: "/admin/dashboard/scratch-rewards", icon: GiftIcon },
-  { title: "Gold Kite Draw", url: "/admin/dashboard/gold-kite-draw", icon: TrophyIcon },
-]
-
 export const secondaryNav: NavItem[] = [
+  { title: "Activity Logs", url: "/admin/dashboard/logs", icon: ScrollTextIcon },
   { title: "Campaign Settings", url: "/admin/dashboard/settings", icon: SettingsIcon },
 ]
 
-export const allNav: NavItem[] = [...operationsNav, ...rewardsNav, ...secondaryNav]
+export const allNav: NavItem[] = [...operationsNav, ...secondaryNav]
 
 export function findNavByPath(pathname: string): NavItem | undefined {
   const exact = allNav.find((item) => item.url === pathname)

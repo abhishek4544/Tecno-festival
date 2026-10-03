@@ -405,3 +405,200 @@ export async function listRecentParticipants(
     participatedAt: new Date(r.participated_at).toISOString(),
   }))
 }
+
+export const AUDIT_LOG_GROUPS = ["admin", "imei", "verification", "settings"] as const
+export type AuditLogGroup = (typeof AUDIT_LOG_GROUPS)[number]
+
+export type AuditLogRow = {
+  id: string
+  action: string
+  summary: string
+  ip: string | null
+  createdAt: string
+}
+
+export type AuditLogFilters = {
+  /** Action prefix, e.g. "imei" matches imei.add / imei.prize / imei.import. */
+  group: AuditLogGroup | null
+  page: number
+  pageSize: number
+}
+
+/** One page of admin activity, newest first, in a single round trip. */
+export async function listAuditLogsPage(
+  filters: AuditLogFilters,
+): Promise<Omit<Paginated<AuditLogRow>, "campaignId">> {
+  const { group, pageSize } = filters
+  const offset = (filters.page - 1) * pageSize
+
+  const [result] = (await sql`
+    WITH filtered AS (
+      SELECT id, action, meta, created_at
+      FROM audit_logs
+      WHERE ${group}::text IS NULL OR action LIKE ${group}::text || '.%'
+    ),
+    paging AS (
+      -- Clamp past-the-end pages to the last page that has rows.
+      SELECT
+        count(*)::int AS total,
+        LEAST(
+          ${offset}::int,
+          GREATEST((count(*)::int - 1) / ${pageSize}::int, 0) * ${pageSize}::int
+        ) AS "offset"
+      FROM filtered
+    )
+    SELECT
+      (SELECT count(*)::int FROM audit_logs) AS total_all,
+      paging.total,
+      paging."offset",
+      COALESCE(
+        (
+          SELECT json_agg(r ORDER BY r.created_at DESC, r.id)
+          FROM (
+            SELECT * FROM filtered
+            ORDER BY created_at DESC, id
+            LIMIT ${pageSize}::int
+            OFFSET (SELECT "offset" FROM paging)
+          ) r
+        ),
+        '[]'
+      ) AS rows
+    FROM paging
+  `) as Array<
+    Omit<PageResult<unknown>, "campaign_id" | "rows"> & {
+      rows: Array<{
+        id: string
+        action: string
+        meta: { summary?: string; ip?: string | null } | null
+        created_at: string
+      }>
+    }
+  >
+
+  return {
+    total: result.total,
+    totalAll: result.total_all,
+    page: result.offset / pageSize + 1,
+    pageSize,
+    rows: result.rows.map((r) => ({
+      id: r.id,
+      action: r.action,
+      summary: r.meta?.summary ?? r.action,
+      ip: r.meta?.ip ?? null,
+      createdAt: r.created_at,
+    })),
+  }
+}
+
+export type OverviewStats = {
+  campaign: {
+    name: string
+    startAt: string
+    endAt: string
+  } | null
+  participants: number
+  participantsToday: number
+  pending: number
+  confirmed: number
+  tryAgain: number
+  coinsToday: number
+  kitesThisWeek: number
+  silverKite: { total: number; distributed: number }
+  silverCoin: { total: number; distributed: number }
+}
+
+/**
+ * Everything the dashboard overview shows, in one round trip. "Today" is the
+ * Nepal day and "this week" the campaign week, matching the prize draw.
+ */
+export async function getOverviewStats(): Promise<OverviewStats> {
+  const [r] = (await sql`
+    WITH campaign AS (
+      SELECT id, name, start_at, end_at FROM campaigns
+      WHERE status = 'Active'
+      ORDER BY start_at DESC
+      LIMIT 1
+    ),
+    bounds AS (
+      SELECT
+        date_trunc('day', now() AT TIME ZONE 'Asia/Kathmandu')
+          AT TIME ZONE 'Asia/Kathmandu' AS day_start,
+        c.start_at
+          + floor(extract(epoch FROM now() - c.start_at) / 604800)
+            * interval '7 days' AS week_start
+      FROM campaign c
+    ),
+    entries AS (
+      SELECT p.participated_at, s.outcome, s.verification_status
+      FROM participants p
+      JOIN campaign c ON c.id = p.campaign_id
+      LEFT JOIN scratch_results s ON s.participant_id = p.id
+    ),
+    stock AS (
+      SELECT r.kind, r.total, r.distributed
+      FROM rewards r
+      JOIN campaign c ON c.id = r.campaign_id
+    )
+    SELECT
+      (
+        SELECT json_build_object(
+          'name', name,
+          'startAt', to_char(start_at AT TIME ZONE 'Asia/Kathmandu', 'YYYY-MM-DD'),
+          'endAt', to_char(end_at AT TIME ZONE 'Asia/Kathmandu', 'YYYY-MM-DD')
+        )
+        FROM campaign
+      ) AS campaign,
+      (SELECT count(*)::int FROM entries) AS participants,
+      (
+        SELECT count(*)::int FROM entries, bounds
+        WHERE participated_at >= day_start
+      ) AS participants_today,
+      (
+        SELECT count(*)::int FROM entries
+        WHERE verification_status = 'Pending'
+      ) AS pending,
+      (
+        SELECT count(*)::int FROM entries
+        WHERE verification_status = 'Confirmed'
+      ) AS confirmed,
+      (SELECT count(*)::int FROM entries WHERE outcome = 'TryAgain') AS try_again,
+      (
+        SELECT count(*)::int FROM entries, bounds
+        WHERE outcome = 'SilverCoin' AND participated_at >= day_start
+      ) AS coins_today,
+      (
+        SELECT count(*)::int FROM entries, bounds
+        WHERE outcome = 'SilverKite' AND participated_at >= week_start
+      ) AS kites_this_week,
+      (SELECT total FROM stock WHERE kind = 'SilverKite') AS sk_total,
+      (SELECT distributed FROM stock WHERE kind = 'SilverKite') AS sk_distributed,
+      (SELECT total FROM stock WHERE kind = 'SilverCoin') AS sc_total,
+      (SELECT distributed FROM stock WHERE kind = 'SilverCoin') AS sc_distributed
+  `) as Array<{
+    campaign: OverviewStats["campaign"]
+    participants: number
+    participants_today: number
+    pending: number
+    confirmed: number
+    try_again: number
+    coins_today: number
+    kites_this_week: number
+    sk_total: number | null
+    sk_distributed: number | null
+    sc_total: number | null
+    sc_distributed: number | null
+  }>
+
+  return {
+    campaign: r.campaign,
+    participants: r.participants,
+    participantsToday: r.participants_today,
+    pending: r.pending,
+    confirmed: r.confirmed,
+    tryAgain: r.try_again,
+    coinsToday: r.coins_today,
+    kitesThisWeek: r.kites_this_week,
+    silverKite: { total: r.sk_total ?? 0, distributed: r.sk_distributed ?? 0 },
+    silverCoin: { total: r.sc_total ?? 0, distributed: r.sc_distributed ?? 0 },
+  }
+}

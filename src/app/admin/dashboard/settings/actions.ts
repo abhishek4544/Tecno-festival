@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 
+import { logAdminAction } from "@/lib/audit-log"
 import { requireAdmin } from "@/lib/auth"
 import { sql } from "@/lib/db"
-import { getActiveCampaign } from "@/lib/db-queries"
+import { getCampaignSettings } from "@/lib/db-queries"
 import type { CampaignStatus } from "@/lib/types"
 
 export type SaveSettingsState = {
@@ -55,14 +56,12 @@ export async function saveCampaignSettings(
     return { ok: false, fieldErrors }
   }
 
-  const campaign = await getActiveCampaign()
+  // Current values: for the stock check and for the log's before → after.
+  const campaign = await getCampaignSettings()
   if (!campaign) return { ok: false, message: "No active campaign." }
 
-  const distributed = (await sql`
-    SELECT kind, distributed FROM rewards WHERE campaign_id = ${campaign.id}
-  `) as Array<{ kind: "SilverKite" | "SilverCoin" | "GoldKite"; distributed: number }>
-  const skDist = distributed.find((r) => r.kind === "SilverKite")?.distributed ?? 0
-  const scDist = distributed.find((r) => r.kind === "SilverCoin")?.distributed ?? 0
+  const skDist = campaign.silverKite.distributed
+  const scDist = campaign.silverCoin.distributed
   if (silverKiteTotal < skDist) {
     fieldErrors.silverKiteTotal = `Already distributed ${skDist}. Cannot lower below that.`
   }
@@ -102,8 +101,33 @@ export async function saveCampaignSettings(
     return { ok: false, message: "Could not save settings." }
   }
 
+  const onOff = (value: boolean) => (value ? "On" : "Off")
+  const changes = [
+    ["Start date", campaign.startAt, startAt],
+    ["End date", campaign.endAt, endAt],
+    ["Status", campaign.status, status],
+    ["Scratch cards", onOff(campaign.scratchEnabled), onOff(scratchEnabled)],
+    ["Gold Kite draw", onOff(campaign.goldKiteEnabled), onOff(goldKiteEnabled)],
+    ["Silver Kite stock", String(campaign.silverKite.total), String(silverKiteTotal)],
+    ["Silver Coin stock", String(campaign.silverCoin.total), String(silverCoinTotal)],
+  ].filter(([, from, to]) => from !== to)
+
+  if (changes.length > 0) {
+    await logAdminAction({
+      action: "settings.update",
+      summary: changes
+        .map(([label, from, to]) => `${label}: ${from} → ${to}`)
+        .join("; "),
+      campaignId: campaign.id,
+      entityType: "campaign",
+      entityId: campaign.id,
+      details: {
+        changes: changes.map(([field, from, to]) => ({ field, from, to })),
+      },
+    })
+  }
+
   revalidatePath("/admin/dashboard/settings")
-  revalidatePath("/admin/dashboard/scratch-rewards")
   revalidatePath("/admin/dashboard")
   return { ok: true }
 }

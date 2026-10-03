@@ -3,6 +3,7 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 import { redirect } from "next/navigation"
 
+import { logAdminAction } from "@/lib/audit-log"
 import { createSession, deleteSession } from "@/lib/auth"
 
 export type LoginState = { message?: string }
@@ -30,14 +31,20 @@ export async function login(
   const password = String(formData.get("password") ?? "")
   // Hash both sides so the comparison is constant-time and length-independent.
   if (!password || !timingSafeEqual(sha256(password), sha256(expected))) {
+    await logAdminAction({
+      action: "admin.login_failed",
+      summary: "Failed login attempt (incorrect password)",
+    })
     return { message: "Incorrect password." }
   }
 
   await createSession()
+  await logAdminAction({ action: "admin.login", summary: "Logged in" })
   redirect(safeRedirectTarget(String(formData.get("from") ?? "")))
 }
 
 export async function logout() {
+  await logAdminAction({ action: "admin.logout", summary: "Logged out" })
   await deleteSession()
   redirect("/admin/login")
 }

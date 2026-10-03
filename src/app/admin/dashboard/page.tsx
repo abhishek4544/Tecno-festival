@@ -1,17 +1,20 @@
 import Link from "next/link"
+import { connection } from "next/server"
 import {
   ArrowRightIcon,
   CheckCircle2Icon,
   ClockIcon,
+  CoinsIcon,
   RotateCcwIcon,
   SparklesIcon,
   UsersIcon,
+  WindIcon,
 } from "lucide-react"
 import type { ComponentType, SVGProps } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { mockParticipants } from "@/lib/mock-participants"
+import { getOverviewStats } from "@/lib/db-queries"
 
 type Accent = 1 | 2 | 3 | 5
 
@@ -24,46 +27,75 @@ type Kpi = {
   href?: string
 }
 
-// --- mock prize inventory, aligned with /scratch-rewards ---
-const silverKite = { total: 50, distributed: 7 }
-const silverCoin = { total: 500, distributed: 42 }
+// Display copies of the draw rules in the claim_entry database function.
+const COIN_TIERS = [
+  { fromSales: 0, coins: 2 },
+  { fromSales: 100, coins: 3 },
+  { fromSales: 200, coins: 4 },
+]
+const KITES_PER_WEEK = 2
 
-export default function Page() {
-  const total = mockParticipants.length
-  const pending = mockParticipants.filter((p) => p.verification === "Pending").length
-  const confirmed = mockParticipants.filter((p) => p.verification === "Confirmed").length
-  const tryAgain = mockParticipants.filter((p) => p.scratch === "Try Again").length
-  const scratchWins = silverKite.distributed + silverCoin.distributed
-  const remainingSK = silverKite.total - silverKite.distributed
-  const remainingSC = silverCoin.total - silverCoin.distributed
+const dateFmt = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+})
+
+export default async function Page() {
+  // Render per request so the numbers are always live.
+  await connection()
+  const stats = await getOverviewStats()
+
+  if (!stats.campaign) {
+    return (
+      <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <div className="rounded border bg-card p-6 text-sm text-muted-foreground">
+          No active campaign. Set one up in Campaign Settings first.
+        </div>
+      </div>
+    )
+  }
+
+  const { silverKite, silverCoin } = stats
+  const prizesGiven = silverKite.distributed + silverCoin.distributed
+  const prizesLeft =
+    silverKite.total - silverKite.distributed +
+    (silverCoin.total - silverCoin.distributed)
+
+  const tier = COIN_TIERS.findLast((t) => stats.participantsToday > t.fromSales)
+  const coinsUnlocked = tier?.coins ?? COIN_TIERS[0]!.coins
+  const nextTier = COIN_TIERS.find(
+    (t) => t.fromSales > 0 && stats.participantsToday <= t.fromSales,
+  )
 
   const kpis: Kpi[] = [
     {
       label: "Participants",
-      value: total.toLocaleString(),
-      footer: "Form submissions this campaign",
+      value: stats.participants.toLocaleString(),
+      footer: `${stats.participantsToday.toLocaleString()} today`,
       icon: UsersIcon,
       accent: 2,
-    },
-    {
-      label: "Pending verification",
-      value: pending.toLocaleString(),
-      footer: pending > 0 ? "Awaiting admin action" : "All caught up",
-      icon: ClockIcon,
-      accent: 1,
       href: "/admin/dashboard/participants",
     },
     {
+      label: "Pending verification",
+      value: stats.pending.toLocaleString(),
+      footer: stats.pending > 0 ? "Awaiting admin action" : "All caught up",
+      icon: ClockIcon,
+      accent: 1,
+      href: "/admin/dashboard/participants?status=Pending",
+    },
+    {
       label: "Confirmed winners",
-      value: confirmed.toLocaleString(),
+      value: stats.confirmed.toLocaleString(),
       footer: "Verified Silver Kite + Silver Coin",
       icon: CheckCircle2Icon,
       accent: 3,
     },
     {
-      label: "Instant wins issued",
-      value: scratchWins.toLocaleString(),
-      footer: `${remainingSK + remainingSC} prizes left in stock`,
+      label: "Prizes given",
+      value: prizesGiven.toLocaleString(),
+      footer: `${prizesLeft.toLocaleString()} prizes left in stock`,
       icon: SparklesIcon,
       accent: 5,
     },
@@ -71,26 +103,63 @@ export default function Page() {
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-6 py-4 md:py-6">
+      <section className="flex flex-wrap items-baseline justify-between gap-2 px-4 lg:px-6">
+        <h2 className="text-sm font-medium">{stats.campaign.name}</h2>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {dateFmt.format(new Date(stats.campaign.startAt))} –{" "}
+          {dateFmt.format(new Date(stats.campaign.endAt))}
+        </span>
+      </section>
+
       <section className="grid grid-cols-1 gap-3 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
         {kpis.map((kpi) => (
           <KpiCard key={kpi.label} {...kpi} />
         ))}
       </section>
 
-      <section className="px-4 lg:px-6">
+      <section className="grid grid-cols-1 gap-3 px-4 lg:px-6 @5xl/main:grid-cols-2">
+        <Card>
+          <CardContent className="flex flex-col gap-5 p-6">
+            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              Today&apos;s draw
+            </span>
+
+            <DrawRow
+              icon={CoinsIcon}
+              tone="var(--chart-2)"
+              label="Silver Coins today"
+              given={stats.coinsToday}
+              limit={coinsUnlocked}
+              note={
+                nextTier
+                  ? `${stats.participantsToday.toLocaleString()} sales today · limit rises to ${nextTier.coins} after ${nextTier.fromSales} sales`
+                  : `${stats.participantsToday.toLocaleString()} sales today · daily maximum reached`
+              }
+            />
+            <DrawRow
+              icon={WindIcon}
+              tone="var(--chart-5)"
+              label="Silver Kites this week"
+              given={stats.kitesThisWeek}
+              limit={KITES_PER_WEEK}
+              note="2 random moments each campaign week"
+            />
+          </CardContent>
+        </Card>
+
         <Card>
           <CardContent className="flex flex-col gap-5 p-6">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Random gift outcomes
+                Prize stock
               </span>
               <Button
                 size="xs"
                 variant="ghost"
                 nativeButton={false}
-                render={<Link href="/admin/dashboard/scratch-rewards" />}
+                render={<Link href="/admin/dashboard/settings" />}
               >
-                Manage
+                Edit stock
                 <ArrowRightIcon />
               </Button>
             </div>
@@ -107,10 +176,50 @@ export default function Page() {
               total={silverCoin.total}
               distributed={silverCoin.distributed}
             />
-            <TryAgainRow count={tryAgain} />
+            <TryAgainRow count={stats.tryAgain} />
           </CardContent>
         </Card>
       </section>
+    </div>
+  )
+}
+
+function DrawRow({
+  icon: Icon,
+  tone,
+  label,
+  given,
+  limit,
+  note,
+}: {
+  icon: ComponentType<SVGProps<SVGSVGElement>>
+  tone: string
+  label: string
+  given: number
+  limit: number
+  note: string
+}) {
+  const pct = limit > 0 ? Math.min(100, Math.round((given / limit) * 100)) : 0
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="inline-flex items-center gap-2 text-sm font-medium">
+          <Icon className="size-3.5" style={{ color: tone }} />
+          {label}
+        </span>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          <span className="font-medium text-foreground">{given}</span>
+          {" / "}
+          {limit}
+        </span>
+      </div>
+      <div className="relative h-1.5 overflow-hidden rounded-full bg-muted">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${pct}%`, background: tone }}
+        />
+      </div>
+      <span className="text-xs text-muted-foreground">{note}</span>
     </div>
   )
 }
@@ -184,7 +293,9 @@ function RewardBar({
           {label}
         </span>
         <span className="text-xs text-muted-foreground tabular-nums">
-          <span className="font-medium text-foreground">{distributed}</span>
+          <span className="font-medium text-foreground">
+            {distributed.toLocaleString()}
+          </span>
           {" / "}
           {total.toLocaleString()}
           <span className="ml-2">({remaining.toLocaleString()} left)</span>

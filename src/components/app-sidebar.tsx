@@ -5,7 +5,6 @@ import Link from "next/link"
 
 import { SparklesIcon } from "lucide-react"
 
-import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
@@ -18,7 +17,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { operationsNav, rewardsNav, secondaryNav } from "@/lib/nav"
+import { operationsNav, secondaryNav } from "@/lib/nav"
 
 const user = {
   name: "TECNO Admin",
@@ -44,7 +43,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={operationsNav} />
-        <NavDocuments label="Rewards & Analytics" items={rewardsNav} />
         <NavSecondary items={secondaryNav} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
