@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import Script from 'next/script';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,7 +22,7 @@ import {
   RECAPTCHA_SCRIPT_URL,
 } from '@/lib/recaptcha';
 
-import { externalLink } from '@/constants';
+import { TERMS_AND_CONDITIONS_PAGE } from '@/constants';
 import {
   entryFormSchema,
   IMEI_LENGTH,
@@ -229,14 +230,13 @@ export default function EntryForm() {
             label={
               <span className="text-slate-800">
                 I have read and agree to the{' '}
-                <a
-                  href={externalLink.termsOfUse}
+                <Link
+                  href={TERMS_AND_CONDITIONS_PAGE}
                   target="_blank"
-                  rel="noopener noreferrer"
                   className="text-slate-950 underline"
                 >
                   Terms &amp; Conditions
-                </a>
+                </Link>
               </span>
             }
             {...register('agreeToTerms')}

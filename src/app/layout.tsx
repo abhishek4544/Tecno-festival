@@ -8,12 +8,16 @@ const instrumentSans = Instrument_Sans({
   subsets: ['latin'],
 });
 
-const SITE_TITLE = 'TECNO Mobile Nepal - Official Website - TECNO Smartphones';
+const SITE_TITLE = 'TECNO Dashain Lucky Draw | TECNO Mobile Nepal';
 const SITE_ICON =
   'https://d13pvy8xd75yde.cloudfront.net/global/x_new/tecno_icon.svg';
 
 export const metadata: Metadata = {
-  title: SITE_TITLE,
+  title: {
+    default: SITE_TITLE,
+    // Other pages set only their own name, e.g. "Terms & Conditions".
+    template: '%s | TECNO Mobile Nepal',
+  },
   description:
     'Celebrate Dashain with TECNO Mobile Nepal. Register your TECNO smartphone IMEI to take part in the festive campaign.',
   keywords: [

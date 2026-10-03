@@ -243,6 +243,14 @@
   --text-title-1-mobile-md--font-weight: 500;
 
   /* Body */
+  --text-body-3-desktop: 16px;
+  --text-body-3-desktop--line-height: 1.6;
+  --text-body-3-desktop--letter-spacing: 0;
+  --text-body-3-desktop--font-weight: 400;
+  --text-body-3-desktop-md: 16px;
+  --text-body-3-desktop-md--line-height: 1.6;
+  --text-body-3-desktop-md--letter-spacing: 0;
+  --text-body-3-desktop-md--font-weight: 500;
   --text-body-4-desktop: 14px;
   --text-body-4-desktop--line-height: normal;
   --text-body-4-desktop--letter-spacing: 0;
