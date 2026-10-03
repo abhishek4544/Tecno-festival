@@ -1,0 +1,14 @@
+{
+  "method": "Built-in image_gen",
+  "revision": "Smooth taut panels with gentle structural folds; no crumpled texture.",
+  "assets": [
+    {
+      "file": "silver-smooth-v2.png",
+      "prompt": "Use case: precise-object-edit. Edit this silver kite asset to remove the crushed, crumpled foil appearance completely. Replace ALL jagged wrinkles, dents, crinkles, tiny creases and noisy highlights across the sail with pristine taut SILVER metallic film stretched smoothly over the existing frame. Each of the four panels is one clean, gently curved surface, with broad satin-metal reflections and soft gradients; only the natural central structural fold and very subtle tension along the spars remain. Smooth clean perimeter seams, no crumpled edges. Still a photorealistic lightweight flying kite, not a flat vector icon. Keep EXACT silhouette, camera angle, silver color, crossed bamboo spars, central binding and tiny triangular tail. Retain composition and genuine transparent alpha background, one fully visible kite only, no backdrop, no checkerboard, no text. Square high resolution asset."
+    },
+    {
+      "file": "gold-smooth-v2.png",
+      "prompt": "Use case: precise-object-edit. Create the GOLD companion of this smooth silver kite asset. Change ONLY the silver film into warm metallic GOLD, with soft champagne highlights, natural amber shadows and broad clean reflections. Keep the pristine taut sail with four smooth gently curved panels, subtle satin surface and natural tension along the spars. Absolutely no crushed foil, crumples, wrinkles, dents, scratches or jagged little creases. Keep EXACT silhouette, camera angle, crossed bamboo spars, central binding, perimeter seams, tiny triangular tail and composition. Still photorealistic lightweight metallic film, not a vector drawing and not an inflated balloon. Retain genuine transparent alpha background. One fully visible kite only, no backdrop, no checkerboard, no text. Square high resolution asset."
+    }
+  ]
+}

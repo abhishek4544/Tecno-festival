@@ -1,0 +1,425 @@
+@import 'tailwindcss';
+
+@theme {
+  /* Colors */
+
+  /* Base */
+  --color-black: #000000;
+  --color-white: #ffffff;
+
+  /* Brand */
+  --color-brand-500: #0088d4;
+
+  /* Slate */
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+
+  /* Cerulean */
+  --color-cerulean-100: #dceaff;
+  --color-cerulean-300: #a0c6fb;
+  --color-cerulean-400: #6eaafd;
+
+  /* Cream */
+  --color-cream-50: #fdfaed;
+  --color-cream-100: #fef7d1;
+  --color-cream-200: #fbf5d8;
+  --color-cream-300: #fff5c4;
+
+  /* Gold */
+  --color-gold-100: #ffe874;
+  --color-gold-200: #ffe357;
+  --color-gold-300: #ffde3a;
+  --color-gold-400: #ffda1d;
+  --color-gold-500: #ffd70f;
+  --color-gold-600: #ffd500;
+  --color-gold-700: #eecd28;
+  --color-gold-950: #4b3f00;
+
+  /* Neutral */
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-300: #d4d4d4;
+
+  /* Ink */
+  --color-ink-900: #101010;
+
+  /* Azure */
+  --color-azure-500: #006fff;
+
+  /* Red */
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+
+  /* Blue */
+  --color-blue-700: #1d4ed8;
+
+  /* Ember */
+  --color-ember-800: #973217;
+
+  /* Navy */
+  --color-navy-800: #0c336f;
+  --color-navy-900: #0c2956;
+  --color-navy-950: #0d2544;
+
+  /* Sun */
+  --color-sun-300: #fbe878;
+
+  /* Mist */
+  --color-mist-100: #e1e3bc;
+
+  /* Haze */
+  --color-haze-200: #c7deff;
+
+  /* Animations */
+  --animate-voice-wave: voice-wave 0.9s ease-in-out infinite;
+  --animate-cloud-drift: cloud-drift 90s linear infinite;
+  --animate-cloud-drift-slow: cloud-drift 140s linear infinite;
+  --animate-cloud-drift-fast: cloud-drift 60s linear infinite;
+  --animate-kite-float: kite-float 7s ease-in-out infinite;
+  --animate-kite-float-slow: kite-float 11s ease-in-out infinite;
+  --animate-kite-sway: kite-sway 3.5s ease-in-out infinite;
+  --animate-kite-sway-slow: kite-sway 5s ease-in-out infinite;
+  --animate-kite-tail: kite-tail 1.6s ease-in-out infinite;
+
+  @keyframes voice-wave {
+    0%,
+    100% {
+      transform: scaleY(1);
+    }
+    50% {
+      transform: scaleY(0.35);
+    }
+  }
+
+  @keyframes cloud-drift {
+    0% {
+      transform: translate3d(-30vw, 0, 0);
+    }
+    100% {
+      transform: translate3d(130vw, 0, 0);
+    }
+  }
+
+  @keyframes kite-float {
+    0%,
+    100% {
+      transform: translate3d(-14px, -18px, 0);
+    }
+    50% {
+      transform: translate3d(14px, 10px, 0);
+    }
+  }
+
+  @keyframes kite-sway {
+    0%,
+    100% {
+      transform: rotate(-7deg);
+    }
+    50% {
+      transform: rotate(7deg);
+    }
+  }
+
+  @keyframes kite-tail {
+    0%,
+    100% {
+      transform: rotate(-14deg);
+    }
+    50% {
+      transform: rotate(14deg);
+    }
+  }
+
+  /* Shadows */
+  --shadow-input: inset 0 1px 2px 1px rgb(0 0 0 / 0.03);
+  --shadow-button-shine:
+    inset 1px 2px 4px 0 rgb(255 255 255 / 0.8),
+    inset 2px 1px 4px 0 rgb(255 255 255 / 0.6);
+
+  /* Typography */
+  --font-instrument-sans: var(--instrument-sans), sans-serif;
+
+  /* Display */
+  --text-display-1-desktop: 54px;
+  --text-display-1-desktop--line-height: 1.1;
+  --text-display-1-desktop--letter-spacing: -0.7px;
+  --text-display-1-desktop--font-weight: 600;
+  --text-display-1-desktop-md: 54px;
+  --text-display-1-desktop-md--line-height: 1.1;
+  --text-display-1-desktop-md--letter-spacing: -0.7px;
+  --text-display-1-desktop-md--font-weight: 500;
+  --text-display-1-mobile: 34px;
+  --text-display-1-mobile--line-height: 1.1;
+  --text-display-1-mobile--letter-spacing: -0.7px;
+  --text-display-1-mobile--font-weight: 600;
+  --text-display-1-mobile-md: 34px;
+  --text-display-1-mobile-md--line-height: 1.1;
+  --text-display-1-mobile-md--letter-spacing: -0.7px;
+  --text-display-1-mobile-md--font-weight: 500;
+
+  /* Heading */
+  --text-heading-1-desktop: 32px;
+  --text-heading-1-desktop--line-height: 1.1;
+  --text-heading-1-desktop--letter-spacing: 0;
+  --text-heading-1-desktop--font-weight: 600;
+  --text-heading-1-desktop-md: 32px;
+  --text-heading-1-desktop-md--line-height: 1.1;
+  --text-heading-1-desktop-md--letter-spacing: 0;
+  --text-heading-1-desktop-md--font-weight: 500;
+  --text-heading-1-mobile: 32px;
+  --text-heading-1-mobile--line-height: 1;
+  --text-heading-1-mobile--letter-spacing: -0.7px;
+  --text-heading-1-mobile--font-weight: 600;
+  --text-heading-1-mobile-md: 32px;
+  --text-heading-1-mobile-md--line-height: 1;
+  --text-heading-1-mobile-md--letter-spacing: -0.7px;
+  --text-heading-1-mobile-md--font-weight: 500;
+  --text-heading-2-desktop: 24px;
+  --text-heading-2-desktop--line-height: 1;
+  --text-heading-2-desktop--letter-spacing: -0.7px;
+  --text-heading-2-desktop--font-weight: 400;
+  --text-heading-2-desktop-md: 24px;
+  --text-heading-2-desktop-md--line-height: 1;
+  --text-heading-2-desktop-md--letter-spacing: -0.7px;
+  --text-heading-2-desktop-md--font-weight: 500;
+  --text-heading-2-mobile: 30px;
+  --text-heading-2-mobile--line-height: 1.1;
+  --text-heading-2-mobile--letter-spacing: -0.7px;
+  --text-heading-2-mobile--font-weight: 600;
+  --text-heading-2-mobile-md: 30px;
+  --text-heading-2-mobile-md--line-height: 1.1;
+  --text-heading-2-mobile-md--letter-spacing: -0.7px;
+  --text-heading-2-mobile-md--font-weight: 500;
+
+  --text-heading-3-desktop: 24px;
+  --text-heading-3-desktop--line-height: 1.1;
+  --text-heading-3-desktop--letter-spacing: 0;
+  --text-heading-3-desktop--font-weight: 600;
+  --text-heading-3-desktop-md: 24px;
+  --text-heading-3-desktop-md--line-height: 1.1;
+  --text-heading-3-desktop-md--letter-spacing: 0;
+  --text-heading-3-desktop-md--font-weight: 500;
+  --text-heading-3-mobile: 16px;
+  --text-heading-3-mobile--line-height: 1.1;
+  --text-heading-3-mobile--letter-spacing: 0;
+  --text-heading-3-mobile--font-weight: 600;
+  --text-heading-3-mobile-md: 16px;
+  --text-heading-3-mobile-md--line-height: 1.1;
+  --text-heading-3-mobile-md--letter-spacing: 0;
+  --text-heading-3-mobile-md--font-weight: 500;
+
+  /* Title */
+  --text-title-1-desktop: 20px;
+  --text-title-1-desktop--line-height: 1.2;
+  --text-title-1-desktop--letter-spacing: 0;
+  --text-title-1-desktop--font-weight: 400;
+  --text-title-1-desktop-md: 20px;
+  --text-title-1-desktop-md--line-height: 1.2;
+  --text-title-1-desktop-md--letter-spacing: 0;
+  --text-title-1-desktop-md--font-weight: 500;
+  --text-title-1-mobile: 16px;
+  --text-title-1-mobile--line-height: 1.2;
+  --text-title-1-mobile--letter-spacing: 0;
+  --text-title-1-mobile--font-weight: 400;
+  --text-title-1-mobile-md: 16px;
+  --text-title-1-mobile-md--line-height: 1.2;
+  --text-title-1-mobile-md--letter-spacing: 0;
+  --text-title-1-mobile-md--font-weight: 500;
+
+  /* Body */
+  --text-body-4-desktop: 14px;
+  --text-body-4-desktop--line-height: normal;
+  --text-body-4-desktop--letter-spacing: 0;
+  --text-body-4-desktop--font-weight: 400;
+  --text-body-4-desktop-md: 14px;
+  --text-body-4-desktop-md--line-height: normal;
+  --text-body-4-desktop-md--letter-spacing: 0;
+  --text-body-4-desktop-md--font-weight: 500;
+
+  /* Caption */
+  --text-caption-1-desktop: 12px;
+  --text-caption-1-desktop--line-height: 1.1;
+  --text-caption-1-desktop--letter-spacing: 0;
+  --text-caption-1-desktop--font-weight: 400;
+  --text-caption-1-desktop-md: 12px;
+  --text-caption-1-desktop-md--line-height: 1.1;
+  --text-caption-1-desktop-md--letter-spacing: 0;
+  --text-caption-1-desktop-md--font-weight: 500;
+}
+
+@layer utilities {
+  .bg-scratch-card {
+    background-image: linear-gradient(
+      231.61deg,
+      var(--color-cream-200) 4.49%,
+      var(--color-cream-300) 33.85%,
+      var(--color-cream-100) 66.13%,
+      var(--color-cream-50) 103.92%
+    );
+  }
+
+  .bg-gold-glow {
+    background-image: radial-gradient(
+      59.3% 120.7% at 50% 50%,
+      var(--color-gold-600) 0%,
+      var(--color-gold-600) 22.6%,
+      var(--color-gold-500) 32.27%,
+      var(--color-gold-400) 41.95%,
+      var(--color-gold-300) 61.3%,
+      var(--color-gold-200) 80.65%,
+      var(--color-gold-100) 100%
+    );
+  }
+
+  .bg-footer-glow {
+    background-image: radial-gradient(
+      217.4% 107% at 52.9% 100%,
+      var(--color-sun-300) 11.04%,
+      var(--color-mist-100) 28.6%,
+      var(--color-haze-200) 46.15%,
+      var(--color-white) 87.98%
+    );
+
+    @variant lg {
+      background-image: radial-gradient(
+        186.6% 92.1% at 53.6% 95.2%,
+        var(--color-sun-300) 11.04%,
+        var(--color-mist-100) 32.17%,
+        var(--color-haze-200) 53.3%,
+        var(--color-white) 77.71%
+      );
+    }
+  }
+}
+
+body {
+  font-family: var(--font-instrument-sans);
+}
+
+.floating-kite {
+  transform-origin: 50% 80%;
+  animation: kite-drift var(--kite-duration) ease-in-out infinite;
+  animation-delay: var(--kite-delay);
+}
+
+.floating-kite-foil {
+  transform-origin: 45% 80%;
+  animation: kite-sail calc(var(--kite-duration) * 0.65) ease-in-out infinite;
+  animation-delay: var(--kite-delay);
+}
+
+@keyframes kite-drift {
+  0%,
+  100% {
+    transform: translate3d(-2px, 0, 0) rotate(-3deg);
+  }
+  28% {
+    transform: translate3d(3px, -7px, 0) rotate(1deg);
+  }
+  60% {
+    transform: translate3d(-2px, -14px, 0) rotate(-2deg);
+  }
+  80% {
+    transform: translate3d(-5px, -6px, 0) rotate(2deg);
+  }
+}
+
+@keyframes kite-sail {
+  0%,
+  100% {
+    transform: perspective(300px) rotateY(-8deg) rotateX(4deg);
+  }
+  50% {
+    transform: perspective(300px) rotateY(10deg) rotateX(-3deg);
+  }
+}
+
+.floating-marigold {
+  transform: translate3d(var(--flower-x), var(--flower-rest-y), 0)
+    translate(-50%, -50%);
+  animation: marigold-fall var(--flower-duration) linear infinite;
+  animation-delay: var(--flower-delay);
+}
+
+.floating-marigold-sway {
+  animation: marigold-sway var(--flower-sway-duration) ease-in-out infinite;
+  animation-delay: var(--flower-delay);
+}
+
+.floating-marigold-bloom {
+  transform: perspective(400px) rotateX(var(--flower-tilt-x))
+    rotateY(var(--flower-tilt-y)) rotateZ(var(--flower-rotation));
+  animation: marigold-turn var(--flower-spin-duration) ease-in-out infinite;
+  animation-delay: var(--flower-delay);
+}
+
+@keyframes marigold-fall {
+  from {
+    transform: translate3d(var(--flower-x), -80px, 0) translate(-50%, -50%);
+  }
+  to {
+    transform: translate3d(var(--flower-x), calc(100cqh + 80px), 0)
+      translate(-50%, -50%);
+  }
+}
+
+@keyframes marigold-sway {
+  0%,
+  100% {
+    transform: translate3d(calc(0px - var(--flower-sway)), 0, 0);
+  }
+  50% {
+    transform: translate3d(var(--flower-sway), 0, 0);
+  }
+}
+
+@keyframes marigold-turn {
+  0%,
+  100% {
+    transform: perspective(400px) rotateX(var(--flower-tilt-x))
+      rotateY(var(--flower-tilt-y)) rotateZ(var(--flower-rotation));
+  }
+  50% {
+    transform: perspective(400px) rotateX(var(--flower-tilt-end))
+      rotateY(calc(0deg - var(--flower-tilt-y)))
+      rotateZ(calc(var(--flower-rotation) + var(--flower-turn)));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floating-kite,
+  .floating-kite-foil,
+  .floating-marigold,
+  .floating-marigold-sway,
+  .floating-marigold-bloom {
+    animation: none;
+  }
+}
+
+@media (width < 48rem) {
+  /* Keep mobile fields readable without triggering iOS input zoom. */
+  .campaign-entry-form input:not([type='checkbox']),
+  .campaign-entry-form select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .campaign-entry-form label[for] {
+    font-size: 15px;
+    line-height: 1.2;
+  }
+
+  .campaign-entry-form label:has(input[type='checkbox']) {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .campaign-entry-form button[type='submit'] {
+    min-height: 48px;
+  }
+}

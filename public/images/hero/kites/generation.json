@@ -1,0 +1,17 @@
+{
+  "method": "Built-in image_gen",
+  "references": [
+    "Object-1.png",
+    "Object-3.png"
+  ],
+  "assets": [
+    {
+      "file": "silver-realistic.png",
+      "prompt": "Use case: product-mockup. Asset type: transparent website decoration. Recreate the attached tiny reference kite as one high resolution, extremely photorealistic SILVER folded metallic-foil Nepali festival kite. Preserve its compact slightly tilted square silhouette, curved cross spars, four tensioned triangular foil panels with realistic creases and soft silver reflections, and tiny triangular tail tab. A real lightweight flying kite, not jewelry. Front three-quarter view tilted slightly clockwise. Center one kite alone filling 85 percent of square canvas, fully visible, transparent alpha background. No string, no ground, no drop shadow on background, no sky, no scenery, no typography, no frame, no checkerboard. Crisp physically realistic daylight reflections. High resolution 1024px square asset."
+    },
+    {
+      "file": "gold-realistic.png",
+      "prompt": "Use case: precise-object-edit. Asset type: transparent website decoration. Create the GOLD companion of this photorealistic silver Nepali festival kite. Change only the silver metallic foil to rich natural warm gold foil, with realistic shaded amber folds and pale champagne highlights, never neon yellow. Preserve the exact shape, angle, curved cross spars, tiny triangular tail tab, crisp realistic foil texture, composition and transparent alpha background. One kite alone, fully visible. No string, no background, no scenery, no floor, no text, no checkerboard. High resolution square asset."
+    }
+  ]
+}
