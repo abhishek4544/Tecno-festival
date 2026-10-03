@@ -312,6 +312,11 @@ body {
   font-family: var(--font-instrument-sans);
 }
 
+/* reCAPTCHA v3 badge; the entry form shows the required notice instead. */
+.grecaptcha-badge {
+  visibility: hidden;
+}
+
 .floating-kite {
   transform-origin: 50% 80%;
   animation: kite-drift var(--kite-duration) ease-in-out infinite;

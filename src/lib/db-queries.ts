@@ -356,3 +356,52 @@ export async function listParticipantsPage(
     })),
   }
 }
+
+export type RecentParticipant = {
+  id: string
+  name: string
+  imei: string
+  retailer: string
+  retailerAddress: string | null
+  scratch: ScratchOutcome
+  participatedAt: string
+}
+
+/** Newest entries for the admin notifications panel. */
+export async function listRecentParticipants(
+  limit: number,
+): Promise<RecentParticipant[]> {
+  const rows = (await sql`
+    SELECT
+      p.id,
+      p.full_name AS name,
+      p.imei,
+      p.retailer_name AS retailer,
+      p.retailer_address,
+      COALESCE(s.outcome, 'Pending') AS scratch,
+      p.participated_at
+    FROM participants p
+    JOIN campaigns c ON c.id = p.campaign_id AND c.status = 'Active'
+    LEFT JOIN scratch_results s ON s.participant_id = p.id
+    ORDER BY p.participated_at DESC
+    LIMIT ${limit}
+  `) as Array<{
+    id: string
+    name: string
+    imei: string
+    retailer: string
+    retailer_address: string | null
+    scratch: ScratchOutcomeDb
+    participated_at: Date
+  }>
+
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    imei: r.imei,
+    retailer: r.retailer,
+    retailerAddress: r.retailer_address,
+    scratch: scratchDbToDisplay[r.scratch],
+    participatedAt: new Date(r.participated_at).toISOString(),
+  }))
+}

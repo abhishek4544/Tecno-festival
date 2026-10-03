@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation"
 
+import { NotificationsSheet } from "@/components/dashboard/notifications-sheet"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { findNavByPath } from "@/lib/nav"
@@ -20,6 +21,9 @@ export function SiteHeader() {
           className="mx-2 h-4 data-vertical:self-auto"
         />
         <h1 className="text-base font-medium">{title}</h1>
+        <div className="ml-auto">
+          <NotificationsSheet />
+        </div>
       </div>
     </header>
   )

@@ -6,6 +6,11 @@ import { headers } from 'next/headers';
 import { z } from 'zod';
 
 import { sql } from '@/lib/db';
+import {
+  ENTRY_RECAPTCHA_ACTION,
+  RECAPTCHA_ERROR_MESSAGE,
+} from '@/lib/recaptcha';
+import { verifyRecaptcha } from '@/lib/verify-recaptcha';
 
 import { entryFormSchema, type EntryFormInput } from '@/schemas';
 import { retailerAddresses, type ScratchPrize } from './_data';
@@ -23,7 +28,9 @@ type ValidationResult =
   | 'CampaignNotStarted'
   | 'CampaignExpired'
   | 'RateLimited'
-  | 'SystemError';
+  | 'SystemError'
+  // Not stored in participation_attempts (no matching DB enum value).
+  | 'RecaptchaFailed';
 
 export type EntryPrize = ScratchPrize['kind'];
 
@@ -60,6 +67,7 @@ const MESSAGES: Partial<Record<ValidationResult, string>> = {
     'The lucky draw hasn’t started yet. Please check back soon.',
   CampaignExpired: 'The lucky draw has ended. Thank you for your interest.',
   RateLimited: 'Too many attempts. Please wait a few minutes and try again.',
+  RecaptchaFailed: RECAPTCHA_ERROR_MESSAGE,
   SystemError: 'Something went wrong. Please try again.',
 };
 
@@ -84,6 +92,7 @@ async function getClient() {
 
 export async function submitEntry(
   input: EntryFormInput,
+  recaptchaToken: string | null,
 ): Promise<SubmitEntryResult> {
   // Re-validate on the server: this action is reachable by direct POST.
   const parsed = entryFormSchema.safeParse(input);
@@ -112,6 +121,13 @@ export async function submitEntry(
   }
 
   const client = await getClient();
+
+  const isHuman = await verifyRecaptcha(
+    recaptchaToken,
+    ENTRY_RECAPTCHA_ACTION,
+    client.ip,
+  );
+  if (!isHuman) return failure('RecaptchaFailed');
 
   try {
     const [campaign] = (await sql`
