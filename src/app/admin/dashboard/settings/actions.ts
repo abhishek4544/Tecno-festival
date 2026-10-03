@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import { requireAdmin } from "@/lib/auth"
 import { sql } from "@/lib/db"
 import { getActiveCampaign } from "@/lib/db-queries"
 import type { CampaignStatus } from "@/lib/types"
@@ -26,6 +27,7 @@ export async function saveCampaignSettings(
   _prev: SaveSettingsState,
   formData: FormData,
 ): Promise<SaveSettingsState> {
+  await requireAdmin()
   const startAt = String(formData.get("startAt") ?? "").trim()
   const endAt = String(formData.get("endAt") ?? "").trim()
   const status = String(formData.get("status") ?? "") as CampaignStatus

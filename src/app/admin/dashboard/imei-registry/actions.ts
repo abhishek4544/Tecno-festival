@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import { requireAdmin } from "@/lib/auth"
 import { sql } from "@/lib/db"
 import { getActiveCampaign } from "@/lib/db-queries"
 import type { AssignedPrize } from "@/lib/types"
@@ -23,6 +24,7 @@ export async function addImei(
   _prev: AddImeiState,
   formData: FormData,
 ): Promise<AddImeiState> {
+  await requireAdmin()
   const imei = String(formData.get("imei") ?? "").trim()
   const deviceModel = String(formData.get("deviceModel") ?? "").trim() || null
   const batch = String(formData.get("batch") ?? "").trim() || null
@@ -77,6 +79,7 @@ export async function setPrize(
   imeiId: string,
   prize: AssignablePrize,
 ): Promise<SetPrizeResult> {
+  await requireAdmin()
   const campaign = await getActiveCampaign()
   if (!campaign) return { ok: false, message: "No active campaign." }
 
@@ -124,6 +127,7 @@ export type PreviewResult =
 export async function previewImeiImport(
   rows: ImportRow[],
 ): Promise<PreviewResult> {
+  await requireAdmin()
   if (rows.length === 0) return { ok: false, message: "File is empty." }
   const campaign = await getActiveCampaign()
   if (!campaign) return { ok: false, message: "No active campaign." }
@@ -204,6 +208,7 @@ export async function commitImeiImport(
   rows: ImportRow[],
   fileName: string,
 ): Promise<CommitResult> {
+  await requireAdmin()
   const campaign = await getActiveCampaign()
   if (!campaign) return { ok: false, message: "No active campaign." }
 

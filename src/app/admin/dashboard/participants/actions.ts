@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import { requireAdmin } from "@/lib/auth"
 import { sql } from "@/lib/db"
 
 export type VerifyResult = { ok: boolean; message?: string }
@@ -13,6 +14,7 @@ export type VerifyResult = { ok: boolean; message?: string }
 export async function passVerification(
   scratchResultId: string,
 ): Promise<VerifyResult> {
+  await requireAdmin()
   const updated = (await sql`
     UPDATE scratch_results
     SET verification_status = 'Confirmed'
@@ -39,6 +41,7 @@ export async function passVerification(
 export async function failVerification(
   scratchResultId: string,
 ): Promise<VerifyResult> {
+  await requireAdmin()
   const updated = (await sql`
     UPDATE scratch_results s
     SET verification_status = 'Rejected'
