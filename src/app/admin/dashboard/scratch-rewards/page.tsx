@@ -1,3 +1,5 @@
+import { connection } from "next/server"
+
 import { PageHeader } from "@/components/dashboard/page-header"
 import {
   Table,
@@ -17,6 +19,8 @@ type Reward = {
 }
 
 export default async function Page() {
+  // Render per request so inventory counts are live, never a build-time snapshot.
+  await connection()
   const settings = await getCampaignSettings()
 
   const rewards: Reward[] = settings

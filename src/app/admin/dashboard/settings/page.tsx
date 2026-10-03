@@ -1,8 +1,12 @@
+import { connection } from "next/server"
+
 import { PageHeader } from "@/components/dashboard/page-header"
 import { getCampaignSettings } from "@/lib/db-queries"
 import { SettingsForm } from "./settings-form"
 
 export default async function Page() {
+  // Render per request so the form always loads the saved settings.
+  await connection()
   const settings = await getCampaignSettings()
 
   if (!settings) {

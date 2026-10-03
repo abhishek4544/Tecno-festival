@@ -1,3 +1,5 @@
+import { connection } from "next/server"
+
 import { AddImeiSheet } from "@/components/dashboard/add-imei-sheet"
 import { ImportImeiSheet } from "@/components/dashboard/import-imei-sheet"
 import { PageHeader } from "@/components/dashboard/page-header"
@@ -5,6 +7,8 @@ import { getActiveCampaign, listImeis } from "@/lib/db-queries"
 import { ImeiTable } from "./imei-table"
 
 export default async function Page() {
+  // Render per request so the registry is always live, never a build-time snapshot.
+  await connection()
   const campaign = await getActiveCampaign()
   const rows = campaign ? await listImeis(campaign.id) : []
 
