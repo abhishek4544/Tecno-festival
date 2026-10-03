@@ -72,6 +72,97 @@ const flowers = [
     start: [60, 23],
     depth: 'middle',
   },
+  {
+    position: 'w-[20px] lg:w-[32px]',
+    start: [52, 6],
+    depth: 'middle',
+  },
+  {
+    position: 'w-[12px] lg:w-[20px]',
+    start: [40, 72],
+    depth: 'far',
+  },
+  {
+    position: 'w-[36px] lg:w-[56px]',
+    start: [64, 38],
+    depth: 'near',
+  },
+  {
+    position: 'w-[14px] lg:w-[24px]',
+    start: [4, 92],
+    depth: 'far',
+  },
+  {
+    position: 'hidden md:block md:w-[28px] lg:w-[40px]',
+    start: [46, 58],
+    depth: 'middle',
+  },
+  {
+    position: 'hidden md:block md:w-[16px] lg:w-[24px]',
+    start: [30, 18],
+    depth: 'far',
+  },
+  {
+    position: 'hidden md:block md:w-[44px] lg:w-[64px]',
+    start: [74, 88],
+    depth: 'near',
+  },
+  {
+    position: 'hidden lg:block lg:w-[36px]',
+    start: [55, 47],
+    depth: 'middle',
+  },
+  {
+    position: 'hidden lg:block lg:w-[20px]',
+    start: [88, 44],
+    depth: 'far',
+  },
+  {
+    position: 'hidden lg:block lg:w-[48px]',
+    start: [26, 60],
+    depth: 'near',
+  },
+  // Mobile only
+  {
+    position: 'w-[24px] md:hidden',
+    start: [3, 22],
+    depth: 'middle',
+  },
+  {
+    position: 'w-[28px] md:hidden',
+    start: [95, 34],
+    depth: 'near',
+  },
+  {
+    position: 'w-[12px] md:hidden',
+    start: [34, 4],
+    depth: 'far',
+  },
+  {
+    position: 'w-[18px] md:hidden',
+    start: [72, 58],
+    depth: 'middle',
+  },
+  {
+    position: 'w-[10px] md:hidden',
+    start: [97, 76],
+    depth: 'far',
+  },
+  {
+    position: 'w-[22px] md:hidden',
+    start: [2, 45],
+    depth: 'middle',
+  },
+  {
+    position: 'w-[30px] md:hidden',
+    start: [58, 26],
+    depth: 'near',
+  },
+  {
+    position: 'w-[14px] md:hidden',
+    start: [16, 12],
+    depth: 'far',
+  },
 ] as const;
 
 const depthStyles = {
@@ -102,7 +193,9 @@ function flowerMotion(
   const duration = depthStyles[flower.depth].duration + random(0, 8);
   const style: Record<string, string | number> = {
     '--flower-duration': `${duration}s`,
-    '--flower-delay': `${-duration * ((index * 0.25 + 0.1) % 1)}s`,
+    // Golden-ratio steps keep every flower on its own phase, so they never
+    // fall in clumps however many there are.
+    '--flower-delay': `${-duration * ((index * 0.618 + 0.1) % 1)}s`,
     '--flower-sway-duration': `${random(5, 9)}s`,
     '--flower-sway': `clamp(4px, ${random(0.6, 1.8).toFixed(2)}cqw, 24px)`,
     '--flower-spin-duration': `${random(31, 57)}s`,

@@ -7,55 +7,62 @@ import Button from '@/components/ui/buttons/Button';
 
 const BACKGROUND_MUSIC_SRC = '/images/audios/dashain-mangal-dhoon.mp3';
 
+// Browsers only allow audible autoplay after a user gesture, so if the
+// attempt on load is blocked we retry on the first interaction. Mobile
+// browsers only grant that permission on touchend/click, not touchstart.
+const INTERACTION_EVENTS = ['click', 'touchend', 'keydown'] as const;
+
 export default function SoundToggleButton() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isSoundOn, setIsSoundOn] = useState(false);
 
   useEffect(() => {
-    const events: Array<keyof WindowEventMap> = [
-      'pointerdown',
-      'keydown',
-      'scroll',
-      'touchstart',
-    ];
-
-    function kickoff() {
-      cleanup();
-      const audio = audioRef.current;
-      if (!audio || !audio.paused) return;
-      audio
-        .play()
-        .then(() => setIsSoundOn(true))
-        .catch(() => {});
-    }
-
-    function cleanup() {
-      events.forEach((e) => window.removeEventListener(e, kickoff));
-    }
-
-    events.forEach((e) =>
-      window.addEventListener(e, kickoff, { once: true, passive: true }),
-    );
-
-    return cleanup;
-  }, []);
-
-  async function handleToggle() {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (isSoundOn) {
-      audio.pause();
-      setIsSoundOn(false);
-      return;
+    function removeListeners() {
+      INTERACTION_EVENTS.forEach((event) =>
+        window.removeEventListener(event, handleFirstInteraction),
+      );
     }
 
-    try {
-      await audio.play();
-      setIsSoundOn(true);
-    } catch {
+    function handleFirstInteraction(event: Event) {
+      // Let the toggle button's own click decide whether to play.
+      if ((event.target as Element).closest?.('[data-sound-toggle]')) {
+        removeListeners();
+        return;
+      }
+      if (!audio?.paused) {
+        removeListeners();
+        return;
+      }
+      // Keep listening until playback actually starts.
+      audio
+        .play()
+        .then(removeListeners)
+        .catch(() => {});
+    }
+
+    audio.play().catch(() => {
+      INTERACTION_EVENTS.forEach((event) =>
+        window.addEventListener(event, handleFirstInteraction, {
+          passive: true,
+        }),
+      );
+    });
+
+    return removeListeners;
+  }, []);
+
+  function handleToggle() {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (audio.paused) {
       // Playback can be blocked by the browser or fail if the file is missing.
-      setIsSoundOn(false);
+      audio.play().catch(() => {});
+    } else {
+      audio.pause();
     }
   }
 
@@ -63,10 +70,11 @@ export default function SoundToggleButton() {
     <>
       <Button
         variant="glass"
+        data-sound-toggle
         aria-pressed={isSoundOn}
         onClick={handleToggle}
         aria-label={isSoundOn ? 'Turn sound off' : 'Turn sound on'}
-        className="h-10 w-10 rounded-[8px] p-0 md:h-[34px] md:w-[42px]"
+        className="fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-50 size-[48px] rounded-full p-0 shadow-lg md:static md:h-[34px] md:w-[42px] md:rounded-[8px] md:shadow-none"
       >
         <icon.voiceWave
           aria-hidden
@@ -79,7 +87,8 @@ export default function SoundToggleButton() {
         src={BACKGROUND_MUSIC_SRC}
         loop
         preload="auto"
-        onEnded={() => setIsSoundOn(false)}
+        onPlay={() => setIsSoundOn(true)}
+        onPause={() => setIsSoundOn(false)}
       />
     </>
   );

@@ -23,6 +23,8 @@ export const twMergeConfig = {
         'heading-3-desktop-md',
         'heading-3-mobile',
         'heading-3-mobile-md',
+        'heading-4-mobile',
+        'heading-4-mobile-md',
         'title-1-desktop',
         'title-1-desktop-md',
         'title-1-mobile',

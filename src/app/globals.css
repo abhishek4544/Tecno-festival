@@ -43,6 +43,7 @@
 
   /* Neutral */
   --color-neutral-100: #f5f5f5;
+  --color-neutral-150: #f2f2f2;
   --color-neutral-300: #d4d4d4;
 
   /* Ink */
@@ -60,6 +61,7 @@
 
   /* Ember */
   --color-ember-800: #973217;
+  --color-ember-950: #4d2500;
 
   /* Navy */
   --color-navy-800: #0c336f;
@@ -212,6 +214,14 @@
   --text-heading-3-mobile-md--line-height: 1.1;
   --text-heading-3-mobile-md--letter-spacing: 0;
   --text-heading-3-mobile-md--font-weight: 500;
+  --text-heading-4-mobile: 18px;
+  --text-heading-4-mobile--line-height: 1.24;
+  --text-heading-4-mobile--letter-spacing: 0;
+  --text-heading-4-mobile--font-weight: 600;
+  --text-heading-4-mobile-md: 18px;
+  --text-heading-4-mobile-md--line-height: 1.24;
+  --text-heading-4-mobile-md--letter-spacing: 0;
+  --text-heading-4-mobile-md--font-weight: 500;
 
   /* Title */
   --text-title-1-desktop: 20px;
@@ -255,11 +265,11 @@
 @layer utilities {
   .bg-scratch-card {
     background-image: linear-gradient(
-      231.61deg,
-      var(--color-cream-200) 4.49%,
-      var(--color-cream-300) 33.85%,
-      var(--color-cream-100) 66.13%,
-      var(--color-cream-50) 103.92%
+      229.23deg,
+      var(--color-white) 4.19%,
+      var(--color-neutral-150) 33.61%,
+      var(--color-white) 65.95%,
+      var(--color-neutral-150) 103.81%
     );
   }
 
@@ -391,6 +401,54 @@ body {
   }
 }
 
+/* Winner confetti: bursts in from the top, then keeps falling through its
+   container on a loop so it stays on screen like the design. */
+.confetti-piece {
+  transform: translate3d(var(--confetti-x), -24px, 0);
+  animation: confetti-fall var(--confetti-duration)
+    cubic-bezier(0.35, 0.1, 0.6, 1) var(--confetti-delay) infinite backwards;
+}
+
+.confetti-sway {
+  animation: confetti-sway var(--confetti-sway-duration) ease-in-out infinite
+    alternate;
+}
+
+.confetti-flip {
+  transform: perspective(200px) rotateZ(var(--confetti-rotation));
+  animation: confetti-flip var(--confetti-flip-duration) linear infinite;
+}
+
+@keyframes confetti-fall {
+  from {
+    transform: translate3d(var(--confetti-x), -24px, 0);
+  }
+  to {
+    transform: translate3d(var(--confetti-x), calc(100cqh + 24px), 0);
+  }
+}
+
+@keyframes confetti-sway {
+  from {
+    transform: translate3d(calc(0px - var(--confetti-sway)), 0, 0);
+  }
+  to {
+    transform: translate3d(var(--confetti-sway), 0, 0);
+  }
+}
+
+@keyframes confetti-flip {
+  from {
+    transform: perspective(200px) rotateZ(var(--confetti-rotation))
+      rotateX(0deg);
+  }
+  to {
+    transform: perspective(200px)
+      rotateZ(calc(var(--confetti-rotation) + var(--confetti-spin)))
+      rotateX(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .floating-kite,
   .floating-kite-foil,
@@ -399,27 +457,22 @@ body {
   .floating-marigold-bloom {
     animation: none;
   }
+
+  .confetti-piece {
+    display: none;
+  }
 }
 
 @media (width < 48rem) {
   /* Keep mobile fields readable without triggering iOS input zoom. */
   .campaign-entry-form input:not([type='checkbox']),
   .campaign-entry-form select {
-    min-height: 44px;
     font-size: 16px;
   }
 
-  .campaign-entry-form label[for] {
-    font-size: 15px;
-    line-height: 1.2;
-  }
-
-  .campaign-entry-form label:has(input[type='checkbox']) {
-    font-size: 13px;
-    line-height: 1.2;
-  }
-
-  .campaign-entry-form button[type='submit'] {
-    min-height: 48px;
+  /* iOS zoom only depends on the input's own font size, so the
+     placeholder can stay at the design's smaller size. */
+  .campaign-entry-form input::placeholder {
+    font-size: 14px;
   }
 }

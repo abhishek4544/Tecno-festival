@@ -7,7 +7,7 @@ import { externalLink } from '@/constants';
 
 export default function Navbar() {
   return (
-    <header className="absolute inset-x-0 top-0 z-50 hidden py-6 md:fixed md:block">
+    <header className="absolute inset-x-0 top-0 z-50 py-6 md:fixed">
       <LayoutWrapper>
         <div className="flex items-center justify-between">
           <SoundToggleButton />
@@ -15,7 +15,10 @@ export default function Navbar() {
             href={externalLink.tecnoWebsite}
             target="_blank"
             rel="noopener noreferrer"
-            className={buttonClasses({ variant: 'brand' })}
+            className={buttonClasses({
+              variant: 'brand',
+              className: 'hidden md:inline-flex',
+            })}
           >
             Visit Website
             <icon.arrowUpRight aria-hidden className="size-[14px]" />

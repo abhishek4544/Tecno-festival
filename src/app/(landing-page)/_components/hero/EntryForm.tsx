@@ -20,7 +20,11 @@ import {
   type EntryFormInput,
   type EntryFormValues,
 } from '@/schemas';
-import { retailerAddresses } from '../../_data';
+import {
+  retailerAddresses,
+  scratchPrizes,
+  type ScratchPrize,
+} from '../../_data';
 
 const defaultValues: EntryFormInput = {
   fullName: '',
@@ -31,8 +35,18 @@ const defaultValues: EntryFormInput = {
   agreeToTerms: false,
 };
 
+// TODO: replace with the API's result. Random until then so every outcome
+// (each prize, or no win) can be previewed.
+function mockPrize(): ScratchPrize | null {
+  const roll = Math.floor(Math.random() * (scratchPrizes.length + 1));
+  return scratchPrizes[roll] ?? null;
+}
+
 export default function EntryForm() {
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [prize, setPrize] = useState<ScratchPrize | null>(null);
+  // Remounts the modal per entry so each one gets a fresh scratch card.
+  const [submissionCount, setSubmissionCount] = useState(0);
 
   const {
     register,
@@ -49,6 +63,8 @@ export default function EntryForm() {
   // TODO: send `values` to the API and only open the modal once it's saved.
   function onSubmit(values: EntryFormValues) {
     void values;
+    setPrize(mockPrize());
+    setSubmissionCount((count) => count + 1);
     setIsSuccessOpen(true);
   }
 
@@ -75,6 +91,7 @@ export default function EntryForm() {
             >
               <TextField
                 id="fullName"
+                placeholder="Enter your full name"
                 autoComplete="name"
                 {...errorProps('fullName')}
                 {...register('fullName')}
@@ -88,6 +105,7 @@ export default function EntryForm() {
               <TextField
                 id="mobileNumber"
                 type="tel"
+                placeholder="Enter mobile number"
                 inputMode="numeric"
                 autoComplete="tel-national"
                 maxLength={10}
@@ -105,6 +123,7 @@ export default function EntryForm() {
             >
               <TextField
                 id="retailerStoreName"
+                placeholder="Enter store name"
                 {...errorProps('retailerStoreName')}
                 {...register('retailerStoreName')}
               />
@@ -128,18 +147,11 @@ export default function EntryForm() {
             label="IMEI Number"
             htmlFor="imeiNumber"
             error={errors.imeiNumber?.message}
-            action={
-              <button
-                type="button"
-                className="cursor-pointer text-caption-1-desktop-md leading-none text-blue-700 underline decoration-1 underline-offset-2"
-              >
-                Where to find IMEI?
-              </button>
-            }
           >
             <div className="relative">
               <TextField
                 id="imeiNumber"
+                placeholder="Enter IMEI number"
                 inputMode="numeric"
                 maxLength={IMEI_LENGTH}
                 aria-invalid={errors.imeiNumber ? true : undefined}
@@ -148,7 +160,7 @@ export default function EntryForm() {
                     ? `imeiNumber-count ${getErrorId('imeiNumber')}`
                     : 'imeiNumber-count'
                 }
-                className="h-[36px] pr-14 md:h-[40px]"
+                className="pr-14"
                 {...register('imeiNumber')}
               />
               <span
@@ -189,8 +201,10 @@ export default function EntryForm() {
       </form>
 
       <EntrySuccessModal
+        key={submissionCount}
         open={isSuccessOpen}
         onClose={() => setIsSuccessOpen(false)}
+        prize={prize}
       />
     </>
   );

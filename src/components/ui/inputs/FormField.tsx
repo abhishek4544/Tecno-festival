@@ -20,7 +20,7 @@ export default function FormField({
   children,
 }: FormFieldProps) {
   return (
-    <div className="flex w-full flex-col gap-3">
+    <div className="flex w-full flex-col gap-2 md:gap-3">
       <div className="flex items-start justify-between gap-2">
         <label
           htmlFor={htmlFor}

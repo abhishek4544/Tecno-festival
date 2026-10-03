@@ -6,6 +6,6 @@ type LayoutWrapperProps = {
 
 export default function LayoutWrapper({ children }: LayoutWrapperProps) {
   return (
-    <div className="max-w-[1400px] px-4 md:px-8 xl:mx-auto">{children}</div>
+    <div className="max-w-[1400px] px-6 md:px-8 xl:mx-auto">{children}</div>
   );
 }
