@@ -18,22 +18,14 @@ const NON_WINNER_HEADING = 'THE GOLD KITE AWAITS!';
 type EntrySuccessModalProps = {
   open: boolean;
   onClose: () => void;
-<<<<<<< Updated upstream
   // The prize won, or null when the entry didn't win.
   prize: ScratchPrize | null;
-=======
-  message?: string;
->>>>>>> Stashed changes
 };
 
 export default function EntrySuccessModal({
   open,
   onClose,
-<<<<<<< Updated upstream
   prize,
-=======
-  message,
->>>>>>> Stashed changes
 }: EntrySuccessModalProps) {
   const [isRevealed, setIsRevealed] = useState(false);
   const isWinner = prize !== null;
@@ -44,7 +36,6 @@ export default function EntrySuccessModal({
 
   return (
     <Modal open={open} onClose={onClose} aria-label="Your Lucky Scratch Card">
-<<<<<<< Updated upstream
       {/* Mobile & tablet */}
       <div className="relative h-[599px] w-[359px] overflow-hidden lg:hidden">
         <div className="absolute top-[0.28px] left-[0.5px] h-[598px] w-[359px] bg-[url('/images/success-modal/mobile-panel-v1.png')] bg-size-[100%_100%] bg-no-repeat" />
@@ -88,18 +79,6 @@ export default function EntrySuccessModal({
       {/* Desktop */}
       <div className="relative hidden items-center gap-1 lg:flex">
         <div className="relative h-[438px] w-[496px] shrink-0">
-=======
-      <div className="relative flex items-stretch gap-1">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close scratch card"
-          className="absolute top-2 right-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-xl text-slate-700"
-        >
-          ×
-        </button>
-        <div className="relative hidden min-h-[470px] w-[496px] shrink-0 lg:block">
->>>>>>> Stashed changes
           {/* The panel shape is mirrored in Figma so its notches face left. */}
           <div className="absolute inset-0 -scale-x-100 bg-[url('/images/success-modal/left-panel.png')] bg-size-[100%_100%] bg-no-repeat" />
           <Image
@@ -127,7 +106,6 @@ export default function EntrySuccessModal({
             className="h-auto w-[162px] lg:hidden"
           />
           <div className="flex w-full flex-col gap-4">
-<<<<<<< Updated upstream
             <h2
               aria-live="polite"
               className={cn(
@@ -140,17 +118,6 @@ export default function EntrySuccessModal({
             <ScratchCard onReveal={() => setIsRevealed(true)}>
               <ScratchResult prize={prize} />
             </ScratchCard>
-=======
-            <h2 className="text-center text-heading-3-mobile text-slate-950 lg:text-left lg:text-heading-3-desktop">
-              Your Lucky Scratch Card
-            </h2>
-            {open && (
-              <ScratchCard
-                message={message}
-                className="h-[236px] lg:h-[252px]"
-              />
-            )}
->>>>>>> Stashed changes
           </div>
         </div>
 

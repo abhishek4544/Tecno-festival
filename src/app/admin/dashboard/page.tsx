@@ -87,6 +87,7 @@ export default function Page() {
               <Button
                 size="xs"
                 variant="ghost"
+                nativeButton={false}
                 render={<Link href="/admin/dashboard/scratch-rewards" />}
               >
                 Manage

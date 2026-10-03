@@ -3,6 +3,8 @@
 import * as React from "react"
 import Link from "next/link"
 
+import { SparklesIcon } from "lucide-react"
+
 import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
@@ -17,7 +19,6 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { operationsNav, rewardsNav, secondaryNav } from "@/lib/nav"
-import { CentralIcon } from "@central-icons-react/all"
 
 const user = {
   name: "TECNO Admin",
@@ -35,14 +36,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:p-1.5!"
               render={<Link href="/admin/dashboard" />}
             >
-              <CentralIcon
-                name="IconSparklesTwo"
-                join="round"
-                fill="filled"
-                stroke="1.5"
-                radius="1"
-                className="size-5!"
-              />
+              <SparklesIcon className="size-5!" strokeWidth={1.5} />
               <span className="text-base font-semibold">TECNO Campaign</span>
             </SidebarMenuButton>
           </SidebarMenuItem>

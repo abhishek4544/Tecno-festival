@@ -1,25 +1,14 @@
-import type { ComponentType, SVGProps } from "react"
-import { CentralIcon } from "@central-icons-react/all"
-import type { CentralIconName } from "@central-icons-react/all/icons"
+import {
+  GiftIcon,
+  LayoutDashboardIcon,
+  SettingsIcon,
+  SmartphoneIcon,
+  TrophyIcon,
+  UsersIcon,
+  type LucideIcon,
+} from "lucide-react"
 
-export type NavIcon = ComponentType<SVGProps<SVGSVGElement>>
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const CentralIconAny = CentralIcon as any
-
-const makeIcon = (name: CentralIconName): NavIcon =>
-  function Icon(props: SVGProps<SVGSVGElement>) {
-    return (
-      <CentralIconAny
-        name={name}
-        join="round"
-        fill="outlined"
-        stroke="1.5"
-        radius="1"
-        {...props}
-      />
-    )
-  }
+export type NavIcon = LucideIcon
 
 export type NavItem = {
   title: string
@@ -28,18 +17,18 @@ export type NavItem = {
 }
 
 export const operationsNav: NavItem[] = [
-  { title: "Overview", url: "/admin/dashboard", icon: makeIcon("IconLayoutDashboard") },
-  { title: "IMEI Registry", url: "/admin/dashboard/imei-registry", icon: makeIcon("IconPhone") },
-  { title: "Participants", url: "/admin/dashboard/participants", icon: makeIcon("IconPeople") },
+  { title: "Overview", url: "/admin/dashboard", icon: LayoutDashboardIcon },
+  { title: "IMEI Registry", url: "/admin/dashboard/imei-registry", icon: SmartphoneIcon },
+  { title: "Participants", url: "/admin/dashboard/participants", icon: UsersIcon },
 ]
 
 export const rewardsNav: NavItem[] = [
-  { title: "Scratch Rewards", url: "/admin/dashboard/scratch-rewards", icon: makeIcon("IconGift1") },
-  { title: "Gold Kite Draw", url: "/admin/dashboard/gold-kite-draw", icon: makeIcon("IconTrophy") },
+  { title: "Scratch Rewards", url: "/admin/dashboard/scratch-rewards", icon: GiftIcon },
+  { title: "Gold Kite Draw", url: "/admin/dashboard/gold-kite-draw", icon: TrophyIcon },
 ]
 
 export const secondaryNav: NavItem[] = [
-  { title: "Campaign Settings", url: "/admin/dashboard/settings", icon: makeIcon("IconSettingsGear1") },
+  { title: "Campaign Settings", url: "/admin/dashboard/settings", icon: SettingsIcon },
 ]
 
 export const allNav: NavItem[] = [...operationsNav, ...rewardsNav, ...secondaryNav]

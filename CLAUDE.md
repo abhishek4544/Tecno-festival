@@ -39,7 +39,7 @@ Not installed by default — add via `npm install` when a feature actually requi
 ## Architecture
 
 - React Compiler is enabled (`reactCompiler: true` in `next.config.ts` + `babel-plugin-react-compiler`) — it auto-memoizes, so don't reach for manual `useMemo`/`useCallback` unless profiling shows a need.
-- `src/app/layout.tsx` is the root layout: it renders `Navbar` + `Footer` around every page's `children`. Page components under `src/app/**/page.tsx` should only render their own `<main>` content, not chrome.
+- `src/app/layout.tsx` is the root layout (html/body, fonts, metadata) and renders no chrome. The public site's `Navbar` + `Footer` live in `src/app/(landing-page)/layout.tsx`; `/admin` has its own layout without them. Page components under `src/app/**/page.tsx` should only render their own `<main>` content, not chrome.
 - Route groups in parens, e.g. `(landing-page)`, organize routes without affecting the URL.
 - Inside a route segment, `_components/` and `_data/` hold page-local subcomponents and static data (underscore prefix keeps them out of the router). Cross-route shared code goes in the top-level `src/components/`, `src/data/`, `src/constants/` instead.
 - Path alias `@/*` → `src/*` (see `tsconfig.json`).
@@ -164,7 +164,7 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
     <LayoutWrapper>{/* section content */}</LayoutWrapper>
   </section>
   ```
-- Root-level chrome (`Navbar`, `Footer` in `src/app/layout.tsx`) sits outside any `LayoutWrapper`; wrap page-section content with it per-section instead.
+- Root-level chrome (`Navbar`, `Footer` in `src/app/(landing-page)/layout.tsx`) sits outside any `LayoutWrapper`; wrap page-section content with it per-section instead.
 
 ## Building an icon
 
