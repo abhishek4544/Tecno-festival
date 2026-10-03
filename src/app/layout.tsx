@@ -1,19 +1,37 @@
+<<<<<<< Updated upstream
 import type { Metadata, Viewport } from 'next';
 import { Instrument_Sans } from 'next/font/google';
 
 import Navbar from '@/components/layouts/navbar/Navbar';
 import Footer from '@/components/layouts/footer/Footer';
+=======
+import type { Metadata } from 'next';
+import { Instrument_Sans, Geist, Geist_Mono } from 'next/font/google';
+>>>>>>> Stashed changes
 
 import './globals.css';
+import './admin.css';
 
 const instrumentSans = Instrument_Sans({
   variable: '--instrument-sans',
   subsets: ['latin'],
 });
 
+<<<<<<< Updated upstream
 const SITE_TITLE = 'TECNO Mobile Nepal - Official Website - TECNO Smartphones';
 const SITE_ICON =
   'https://d13pvy8xd75yde.cloudfront.net/global/x_new/tecno_icon.svg';
+=======
+const geistSans = Geist({
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
+});
+
+const geistMono = Geist_Mono({
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+});
+>>>>>>> Stashed changes
 
 export const metadata: Metadata = {
   title: SITE_TITLE,
@@ -58,12 +76,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en" className={`${instrumentSans.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col">
-        <Navbar />
-        {children}
-        <Footer />
-      </body>
+    <html
+      lang="en"
+      className={`${instrumentSans.variable} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );
 }
