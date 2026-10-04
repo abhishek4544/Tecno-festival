@@ -232,7 +232,6 @@ export default function EntryForm() {
                 I have read and agree to the{' '}
                 <Link
                   href={TERMS_AND_CONDITIONS_PAGE}
-                  target="_blank"
                   className="text-slate-950 underline"
                 >
                   Terms &amp; Conditions

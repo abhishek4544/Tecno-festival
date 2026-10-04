@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 import TermsList from './TermsList';
 import LayoutWrapper from '@/components/layouts/wrapper/LayoutWrapper';
+import { icon } from '@/components/icons';
 
 import { LANDING_PAGE } from '@/constants';
 import { termsClauses } from '../_data';
@@ -31,6 +32,14 @@ export default function TermsSection() {
           </Link>
 
           <article className="mt-10 flex w-full max-w-[800px] flex-col gap-8 rounded-[8px] bg-white/85 px-4 py-8 shadow-[0_8px_40px_rgb(12_41_86/0.08)] backdrop-blur-[16px] md:mt-12 md:gap-10 md:rounded-[12px] md:px-12 md:py-12">
+            <Link
+              href={LANDING_PAGE}
+              className="inline-flex items-center gap-2 self-start text-body-4-desktop-md text-navy-800 hover:underline"
+            >
+              <icon.arrowLeft aria-hidden="true" />
+              Back
+            </Link>
+
             <header className="flex flex-col gap-1.5 text-center">
               <h1 className="text-heading-1-mobile text-navy-800">
                 Terms &amp; Conditions
