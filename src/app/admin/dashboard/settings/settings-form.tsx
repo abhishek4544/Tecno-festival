@@ -6,6 +6,7 @@ import {
   AlertTriangleIcon,
   CheckCircle2Icon,
   GiftIcon,
+  PackageIcon,
   SparklesIcon,
 } from "lucide-react"
 
@@ -136,13 +137,45 @@ export function SettingsForm({ settings }: { settings: CampaignSettings }) {
           <CardContent className="flex flex-col gap-6 p-6">
             <div className="flex flex-col gap-0.5">
               <h2 className="flex items-center gap-2 text-sm font-semibold">
-                <GiftIcon className="size-4" />
-                Silver Coin — sales-based cap
+                <PackageIcon className="size-4" />
+                Prize stock
               </h2>
               <p className="text-xs text-muted-foreground">
-                Cap grows as total participants cross each threshold. Admins
-                can still pre-assign a Silver Coin to a specific IMEI; that
-                award bypasses the cap.
+                Total prizes available for the whole campaign. Once stock runs
+                out, no more of that prize is awarded, even if the daily or
+                weekly draw would allow it. Cannot be lowered below what&apos;s
+                already distributed.
+              </p>
+            </div>
+            <div className="grid gap-6 sm:grid-cols-2">
+              <StockField
+                label="Silver Coin stock"
+                name="silverCoinStock"
+                stock={settings.silverCoin}
+                error={errs.silverCoinStock}
+              />
+              <StockField
+                label="Silver Kite stock"
+                name="silverKiteStock"
+                stock={settings.silverKite}
+                error={errs.silverKiteStock}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex flex-col gap-6 p-6">
+            <div className="flex flex-col gap-0.5">
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                <GiftIcon className="size-4" />
+                Silver Coin — daily sales-based cap
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Daily cap, based on today&apos;s sales (Nepal time). Each tier
+                is the total coins that can be won that day, not an extra
+                amount — it resets every day. Admins can still pre-assign a
+                Silver Coin to a specific IMEI; that award bypasses the cap.
               </p>
               <p className="mt-1 text-xs text-muted-foreground tabular-nums">
                 {settings.silverCoin.distributed.toLocaleString()} coins
@@ -213,6 +246,35 @@ function Field({
         <span className="text-xs text-destructive">{error}</span>
       ) : null}
     </div>
+  )
+}
+
+function StockField({
+  label,
+  name,
+  stock,
+  error,
+}: {
+  label: string
+  name: string
+  stock: { total: number; distributed: number }
+  error?: string
+}) {
+  return (
+    <Field label={label} error={error}>
+      <Input
+        type="number"
+        name={name}
+        min={stock.distributed}
+        step={1}
+        defaultValue={stock.total}
+        className="w-[180px] tabular-nums"
+      />
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {stock.distributed.toLocaleString()} distributed ·{" "}
+        {Math.max(0, stock.total - stock.distributed).toLocaleString()} left
+      </span>
+    </Field>
   )
 }
 
@@ -305,7 +367,7 @@ function TierRow({
           defaultValue={coinsDefault}
           className="w-[80px] tabular-nums"
         />
-        <span className="text-muted-foreground">silver coins total</span>
+        <span className="text-muted-foreground">silver coins per day</span>
       </div>
       {upToError || coinsError ? (
         <span className="text-xs text-destructive">

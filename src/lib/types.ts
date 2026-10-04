@@ -21,9 +21,10 @@ export type ImeiRecord = {
 export type CampaignStatus = "Draft" | "Scheduled" | "Active" | "Paused" | "Completed"
 
 /**
- * Sales-based cap for Silver Coin.
+ * Daily sales-based cap for Silver Coin.
  * `upTo: null` marks the open-ended final tier.
- * Awards stop when total distributed coins reach the active tier's `coins`.
+ * Awards stop for the day when coins distributed today (Nepal day) reach the
+ * `coins` of the tier matching today's sales count.
  */
 export type SilverCoinTier = {
   upTo: number | null

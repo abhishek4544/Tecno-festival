@@ -27,7 +27,12 @@ export type SaveSettingsState = {
   message?: string
   fieldErrors?: Partial<
     Record<
-      "startAt" | "endAt" | "silverKitePerWeek" | CoinTierFieldKey,
+      | "startAt"
+      | "endAt"
+      | "silverKitePerWeek"
+      | "silverCoinStock"
+      | "silverKiteStock"
+      | CoinTierFieldKey,
       string
     >
   >
@@ -97,6 +102,8 @@ export async function saveCampaignSettings(
 
   const coin = parseCoinTiers(formData)
   const kitePerWeek = parseIntField(formData.get("silverKitePerWeek"))
+  const coinStock = parseIntField(formData.get("silverCoinStock"))
+  const kiteStock = parseIntField(formData.get("silverKiteStock"))
 
   const fieldErrors: SaveSettingsState["fieldErrors"] = { ...coin.errors }
   if (!startAt) fieldErrors.startAt = "Start date is required."
@@ -107,6 +114,12 @@ export async function saveCampaignSettings(
   if (kitePerWeek === null) {
     fieldErrors.silverKitePerWeek = "Enter a non-negative whole number."
   }
+  if (coinStock === null) {
+    fieldErrors.silverCoinStock = "Enter a non-negative whole number."
+  }
+  if (kiteStock === null) {
+    fieldErrors.silverKiteStock = "Enter a non-negative whole number."
+  }
 
   if (!STATUSES.includes(status)) {
     return { ok: false, message: "Invalid status." }
@@ -116,35 +129,21 @@ export async function saveCampaignSettings(
   }
 
   const coinTiers = coin.tiers
-  const coinMax = Math.max(...coinTiers.map((t) => t.coins))
 
   const campaign = await getCampaignSettings()
   if (!campaign) return { ok: false, message: "No active campaign." }
 
-  // Any tier whose cap is below current distributed would make it impossible
-  // to retroactively honor past wins; block the save.
-  if (coinMax < campaign.silverCoin.distributed) {
-    fieldErrors.silverCoinTier2Coins = `Already distributed ${campaign.silverCoin.distributed}. The highest tier must allow at least that many coins.`
+  // Stock is the hard ceiling take_reward enforces on top of the daily/weekly
+  // draw; it can't drop below what winners have already been given.
+  if ((coinStock as number) < campaign.silverCoin.distributed) {
+    fieldErrors.silverCoinStock = `Already distributed ${campaign.silverCoin.distributed}. Stock can't be lower than that.`
+  }
+  if ((kiteStock as number) < campaign.silverKite.distributed) {
+    fieldErrors.silverKiteStock = `Already distributed ${campaign.silverKite.distributed}. Stock can't be lower than that.`
   }
   if (Object.keys(fieldErrors).length > 0) {
     return { ok: false, fieldErrors }
   }
-
-  // Rough upper bound on Silver Kite stock across the campaign:
-  // (ceiling of weeks between start and end) × kites per week, floored at
-  // what's already been distributed. Keeps rewards.total sensible for the
-  // Scratch Rewards page and for take_reward's safety check.
-  const weeksInCampaign = Math.max(
-    1,
-    Math.ceil(
-      (new Date(endAt).getTime() - new Date(startAt).getTime()) /
-        (7 * 24 * 60 * 60 * 1000),
-    ),
-  )
-  const kiteTotal = Math.max(
-    campaign.silverKite.distributed,
-    (kitePerWeek as number) * weeksInCampaign,
-  )
 
   try {
     await sql.transaction([
@@ -160,13 +159,13 @@ export async function saveCampaignSettings(
       `,
       sql`
         INSERT INTO rewards (campaign_id, kind, total)
-        VALUES (${campaign.id}, 'SilverCoin', ${coinMax})
+        VALUES (${campaign.id}, 'SilverCoin', ${coinStock})
         ON CONFLICT (campaign_id, kind)
         DO UPDATE SET total = EXCLUDED.total
       `,
       sql`
         INSERT INTO rewards (campaign_id, kind, total)
-        VALUES (${campaign.id}, 'SilverKite', ${kiteTotal})
+        VALUES (${campaign.id}, 'SilverKite', ${kiteStock})
         ON CONFLICT (campaign_id, kind)
         DO UPDATE SET total = EXCLUDED.total
       `,
@@ -176,8 +175,11 @@ export async function saveCampaignSettings(
   }
 
   const tiersLabel = (list: SilverCoinTier[]) =>
-    list
-      .map((t) => `${t.upTo === null ? "200+" : `≤${t.upTo}`}:${t.coins}`)
+    sortTiers(list)
+      .map(
+        (t, i, sorted) =>
+          `${t.upTo === null ? `>${sorted[i - 1]?.upTo ?? 0}` : `≤${t.upTo}`}:${t.coins}`,
+      )
       .join(", ")
   const changes = [
     ["Start date", campaign.startAt, startAt],
@@ -192,6 +194,16 @@ export async function saveCampaignSettings(
       "Silver Kite / week",
       String(campaign.silverKitePerWeek),
       String(kitePerWeek),
+    ],
+    [
+      "Silver Coin stock",
+      String(campaign.silverCoin.total),
+      String(coinStock),
+    ],
+    [
+      "Silver Kite stock",
+      String(campaign.silverKite.total),
+      String(kiteStock),
     ],
   ].filter(([, from, to]) => from !== to)
 

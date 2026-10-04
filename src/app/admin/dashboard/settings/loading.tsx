@@ -26,10 +26,12 @@ export default function Loading() {
         <Card>
           <CardContent className="flex flex-col gap-6 p-6">
             <div className="flex flex-col gap-0.5">
-              <h2 className="text-sm font-semibold">Reward inventory</h2>
+              <h2 className="text-sm font-semibold">Prize stock</h2>
               <p className="text-xs text-muted-foreground">
-                How many of each instant reward are available. Cannot be lowered
-                below what&rsquo;s already distributed.
+                Total prizes available for the whole campaign. Once stock runs
+                out, no more of that prize is awarded, even if the daily or
+                weekly draw would allow it. Cannot be lowered below what&apos;s
+                already distributed.
               </p>
             </div>
             <div className="grid gap-6 sm:grid-cols-2">
