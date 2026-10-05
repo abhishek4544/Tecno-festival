@@ -52,6 +52,13 @@ export function SettingsForm({ settings }: { settings: CampaignSettings }) {
     initial,
   )
   const [status, setStatus] = React.useState<CampaignStatus>(settings.status)
+  const week = settings.silverKiteWeek
+  const [kiteDay, setKiteDay] = React.useState(week.selectedDay ?? "random")
+  // Lets the trigger show "Thu, 08 Oct" instead of the raw date value.
+  const kiteDayItems = [
+    { value: "random", label: "Any day (random)" },
+    ...week.days.map((d) => ({ value: d.value, label: d.label })),
+  ]
   const formRef = React.useRef<HTMLFormElement | null>(null)
 
   const errs = state.fieldErrors ?? {}
@@ -174,8 +181,10 @@ export function SettingsForm({ settings }: { settings: CampaignSettings }) {
               <p className="text-xs text-muted-foreground">
                 Daily cap, based on today&apos;s sales (Nepal time). Each tier
                 is the total coins that can be won that day, not an extra
-                amount — it resets every day. Admins can still pre-assign a
-                Silver Coin to a specific IMEI; that award bypasses the cap.
+                amount — it resets every day. Only entries between 6 AM and 10
+                PM can win a coin; entries outside those hours don&apos;t
+                count toward the draw. Admins can still pre-assign a Silver
+                Coin to a specific IMEI; that award bypasses the cap.
               </p>
               <p className="mt-1 text-xs text-muted-foreground tabular-nums">
                 {settings.silverCoin.distributed.toLocaleString()} coins
@@ -197,9 +206,12 @@ export function SettingsForm({ settings }: { settings: CampaignSettings }) {
               <p className="text-xs text-muted-foreground">
                 How many Silver Kites get drawn in each weekly window. Winning
                 moments are picked at random times inside the week; the kite is
-                awarded to the next entry after a winning moment passes.
-                Admins can still pre-assign a Silver Kite to a specific IMEI;
-                that award is in addition to the weekly draw.
+                awarded to the next entry made between 6 AM and 10 PM after a
+                winning moment passes. With a
+                kite day, exactly one kite lands on that day and the rest on
+                the other days, all between 6 AM and 10 PM. Admins can still
+                pre-assign a Silver Kite to a specific IMEI; that award is in
+                addition to the weekly draw.
               </p>
               <p className="mt-1 text-xs text-muted-foreground tabular-nums">
                 {settings.silverKite.distributed.toLocaleString()} kites
@@ -207,19 +219,58 @@ export function SettingsForm({ settings }: { settings: CampaignSettings }) {
               </p>
             </div>
 
-            <Field
-              label="Kites per week"
-              error={errs.silverKitePerWeek}
-            >
-              <Input
-                type="number"
-                name="silverKitePerWeek"
-                min={0}
-                step={1}
-                defaultValue={settings.silverKitePerWeek}
-                className="w-[120px] tabular-nums"
-              />
+            <Field label={`Current week · Week ${week.number}`}>
+              <div className="flex flex-wrap items-center gap-2 text-sm tabular-nums">
+                <span className="rounded border bg-muted/50 px-2.5 py-1.5">
+                  {week.startLabel}
+                </span>
+                <span className="text-muted-foreground">→</span>
+                <span className="rounded border bg-muted/50 px-2.5 py-1.5">
+                  {week.endLabel}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Nepal time. Weeks run 7 days from the campaign start and
+                can&apos;t be edited here.
+              </span>
             </Field>
+
+            <div className="grid gap-6 sm:grid-cols-2">
+              <Field label="Kites per week" error={errs.silverKitePerWeek}>
+                <Input
+                  type="number"
+                  name="silverKitePerWeek"
+                  min={0}
+                  step={1}
+                  defaultValue={settings.silverKitePerWeek}
+                  className="w-[120px] tabular-nums"
+                />
+              </Field>
+
+              <Field label="Kite day (this week)" error={errs.silverKiteDay}>
+                <input type="hidden" name="silverKiteDay" value={kiteDay} />
+                <Select
+                  value={kiteDay}
+                  onValueChange={(v) => setKiteDay(v ?? "random")}
+                  items={kiteDayItems}
+                >
+                  <SelectTrigger className="max-w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="random">Any day (random)</SelectItem>
+                    {week.days.map((d) => (
+                      <SelectItem key={d.value} value={d.value} disabled={d.unavailable}>
+                        {d.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-xs text-muted-foreground">
+                  One kite is drawn between 6 AM and 10 PM on this day.
+                </span>
+              </Field>
+            </div>
           </CardContent>
         </Card>
       </div>

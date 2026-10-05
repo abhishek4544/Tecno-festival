@@ -195,6 +195,33 @@ export type CampaignSettings = {
   silverCoinTiers: SilverCoinTier[]
   /** How many Silver Kites get drawn per weekly window. */
   silverKitePerWeek: number
+  silverKiteWeek: SilverKiteWeek
+}
+
+export type SilverKiteDay = {
+  value: string // YYYY-MM-DD, Nepal date
+  label: string
+  /**
+   * No peak sales hours (06:00–22:00 Nepal time) left on this day within the
+   * week — a kite can no longer be scheduled on it.
+   */
+  unavailable: boolean
+}
+
+/**
+ * The campaign week the Silver Kite draw is running in right now. Windows are
+ * 7 days counted from `campaigns.start_at`, the same as `claim_entry`.
+ */
+export type SilverKiteWeek = {
+  /** `period_overrides.silverKiteDays` key for this week. */
+  key: string
+  number: number
+  startLabel: string
+  endLabel: string
+  /** Nepal days that overlap the week, in order. */
+  days: SilverKiteDay[]
+  /** Day the admin picked for this week's kites; null = random within the week. */
+  selectedDay: string | null
 }
 
 export async function getCampaignSettings(): Promise<CampaignSettings | null> {
@@ -214,7 +241,59 @@ export async function getCampaignSettings(): Promise<CampaignSettings | null> {
       c.silver_kite_per_week AS "silverKitePerWeek"
     FROM campaigns c
     WHERE c.id = ${campaign.id}
-  `) as Array<Omit<CampaignSettings, "silverKite" | "silverCoin">>
+  `) as Array<
+    Omit<CampaignSettings, "silverKite" | "silverCoin" | "silverKiteWeek">
+  >
+
+  // Week window uses the exact expression in claim_entry so the week shown
+  // here is the one the draw is keyed on (gift_draws.period_start).
+  const [week] = (await sql`
+    WITH w AS (
+      SELECT
+        c.period_overrides,
+        floor(extract(epoch FROM now() - c.start_at) / 604800)::int AS idx,
+        c.start_at
+          + floor(extract(epoch FROM now() - c.start_at) / 604800)
+            * interval '7 days' AS ws
+      FROM campaigns c
+      WHERE c.id = ${campaign.id}
+    ),
+    k AS (
+      SELECT
+        *,
+        ws + interval '7 days' AS we,
+        to_char(ws AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS key
+      FROM w
+    )
+    SELECT
+      key,
+      idx + 1 AS number,
+      to_char(ws AT TIME ZONE 'Asia/Kathmandu', 'Dy, DD Mon YYYY, HH12:MI AM')
+        AS "startLabel",
+      to_char(we AT TIME ZONE 'Asia/Kathmandu', 'Dy, DD Mon YYYY, HH12:MI AM')
+        AS "endLabel",
+      period_overrides -> 'silverKiteDays' ->> key AS "selectedDay",
+      (
+        SELECT json_agg(
+          json_build_object(
+            'value', to_char(d, 'YYYY-MM-DD'),
+            'label', to_char(d, 'Dy, DD Mon'),
+            'unavailable',
+              GREATEST(
+                (d + interval '6 hours') AT TIME ZONE 'Asia/Kathmandu', ws, now()
+              ) + interval '2 minutes'
+                > LEAST((d + interval '22 hours') AT TIME ZONE 'Asia/Kathmandu', we)
+          )
+          ORDER BY d
+        )
+        FROM generate_series(
+          (ws AT TIME ZONE 'Asia/Kathmandu')::date,
+          ((we - interval '1 microsecond') AT TIME ZONE 'Asia/Kathmandu')::date,
+          interval '1 day'
+        ) d
+      ) AS days
+    FROM k
+  `) as SilverKiteWeek[]
 
   const rewardRows = (await sql`
     SELECT kind, total, distributed
@@ -229,6 +308,7 @@ export async function getCampaignSettings(): Promise<CampaignSettings | null> {
     ...rows[0]!,
     silverKite: { total: sk?.total ?? 0, distributed: sk?.distributed ?? 0 },
     silverCoin: { total: sc?.total ?? 0, distributed: sc?.distributed ?? 0 },
+    silverKiteWeek: week!,
   }
 }
 
